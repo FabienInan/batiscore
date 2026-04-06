@@ -1,9 +1,10 @@
 from datetime import date
 from typing import List
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Contractor, RBQEvent, OPCPlainte, Litige
+from models import Contractor, RBQEvent, OPCPlainte, Litige, SEAOContract
 
 
 def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OPCPlainte | None, litiges: List[Litige], nb_contrats: int) -> int:
@@ -93,10 +94,8 @@ def score_label(score: int) -> dict:
         return {"label": "À risque élevé", "color": "red"}
 
 
-async def recalculate_all_scores(db: Session):
+async def recalculate_all_scores(db: AsyncSession):
     """Recalcule les scores de tous les entrepreneurs."""
-    from sqlalchemy import select
-
     result = await db.execute(select(Contractor))
     contractors = result.scalars().all()
 
@@ -116,10 +115,10 @@ async def recalculate_all_scores(db: Session):
         )
         litiges = litiges_result.scalars().all()
 
-        contrats_count = await db.execute(
+        contrats_result = await db.execute(
             select(SEAOContract).where(SEAOContract.contractor_id == contractor.id)
         )
-        nb_contrats = len(contrats_count.scalars().all())
+        nb_contrats = len(contrats_result.scalars().all())
 
         contractor.score = calculate_score(contractor, events, plaintes, litiges, nb_contrats)
         contractor.score_updated_at = date.today()
