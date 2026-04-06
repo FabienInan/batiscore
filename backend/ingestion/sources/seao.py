@@ -1,83 +1,81 @@
 """
 Ingestion des données SEAO (appels d'offres publics).
 
-Source: https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao
-Format: JSON hebdomadaire
+Source miroir: https://ouvert.canada.ca/data/fr/dataset/d23b2e02-085d-43e5-9e6e-e1d558ebfdd5
+Site officiel: https://seao.gouv.qc.ca/
 
 Usage: Afficher les contrats publics gagnés comme signal positif de crédibilité.
+
+Note: donneesquebec.ca a expiré - utiliser le miroir ouvert.canada.ca
 """
 import json
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from models import Contractor, SEAOContract
 from ingestion.transforms.normalize import normalize_name, normalize_neq
 
 
-# URL à remplacer par la vraie URL du dataset
-SEAO_URL = "https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao/resource/[ID]/download"
-
-
 async def ingest_seao(db: AsyncSession):
     """
-    Ingestion du fichier JSON SEAO.
+    Ingestion des contrats publics SEAO.
 
-    Structure attendue:
-    [
-        {
-            "titre": "Rénovation école primaire...",
-            "organisme": "Commission scolaire de Montréal",
-            "montant": 2500000.00,
-            "date_adjudication": "2024-01-15",
-            "fournisseur": "Construction ABC inc.",
-            "neq_fournisseur": "1234567890"
-        },
-        ...
-    ]
+    Le miroir ouvert.canada.ca contient les fichiers JSON hebdomadaires.
     """
-    print("SEAO: Téléchargement des contrats publics...")
+    print("SEAO: Récupération des contrats publics...")
+    print(f"SEAO: Miroir - {settings.seao_mirror_url}")
 
-    try:
-        async with httpx.AsyncClient(timeout=180) as client:
-            resp = await client.get(SEAO_URL)
+    # Note: Pour le MVP, l'ingestion SEAO nécessite un téléchargement manuel
+    # car le miroir peut nécessiter une navigation sur le site
+    print("SEAO: Consulter le miroir pour télécharger le fichier JSON le plus récent")
 
-        if resp.status_code != 200:
-            print(f"SEAO: Erreur HTTP {resp.status_code}")
-            return 0
+    return 0
 
-        # Parser le JSON
+
+async def ingest_seao_from_file(filepath: str, db: AsyncSession) -> int:
+    """
+    Ingestion du fichier SEAO depuis un fichier local (JSON).
+
+    Usage:
+        python -m ingestion.run --source seao --file /path/to/seao.json
+    """
+    print(f"SEAO: Lecture de {filepath}")
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if isinstance(data, dict):
+        data = data.get("contrats", data.get("data", []))
+
+    print(f"SEAO: {len(data):,} contrats")
+
+    return await process_seao_contracts(data, db)
+
+
+async def process_seao_contracts(contracts: list, db: AsyncSession) -> int:
+    """Traite une liste de contrats SEAO."""
+    ingested = 0
+
+    for contract in contracts:
         try:
-            data = resp.json()
-        except json.JSONDecodeError:
-            print("SEAO: Erreur parsing JSON")
-            return 0
+            await process_seao_contract(contract, db)
+            ingested += 1
 
-        print(f"SEAO: {len(data)} contrats trouvés")
+            if ingested % 100 == 0:
+                await db.commit()
 
-        ingested = 0
-        for contract in data:
-            try:
-                await process_seao_contract(contract, db)
-                ingested += 1
+        except Exception as e:
+            print(f"SEAO: Erreur - {e}")
+            continue
 
-                if ingested % 100 == 0:
-                    await db.commit()
-
-            except Exception as e:
-                print(f"SEAO: Erreur contrat: {e}")
-                continue
-
-        await db.commit()
-        print(f"SEAO: {ingested} contrats ingérés")
-        return ingested
-
-    except Exception as e:
-        print(f"SEAO: Erreur ingestion: {e}")
-        return 0
+    await db.commit()
+    print(f"SEAO: {ingested:,} contrats ingérés")
+    return ingested
 
 
 async def process_seao_contract(contract: dict, db: AsyncSession):
@@ -85,8 +83,8 @@ async def process_seao_contract(contract: dict, db: AsyncSession):
     Traite un contrat SEAO et l'associe à un entrepreneur.
     """
     # Chercher le contractor par NEQ ou nom
-    neq = contract.get("neq_fournisseur")
-    nom_fournisseur = contract.get("fournisseur", "")
+    neq = contract.get("neq_fournisseur") or contract.get("NEQ")
+    nom_fournisseur = contract.get("fournisseur") or contract.get("nom_fournisseur") or contract.get("nom")
 
     contractor = None
 
@@ -101,7 +99,7 @@ async def process_seao_contract(contract: dict, db: AsyncSession):
 
     # 2. Chercher par nom
     if not contractor and nom_fournisseur:
-        nom_norm = normalize_name(nom_fournisseur)
+        nom_norm = normalize_name(str(nom_fournisseur))
         if nom_norm:
             result = await db.execute(
                 select(Contractor).where(Contractor.nom_normalized == nom_norm)
@@ -112,8 +110,8 @@ async def process_seao_contract(contract: dict, db: AsyncSession):
         return
 
     # Vérifier si le contrat existe déjà
-    titre = contract.get("titre", "")
-    date_attr = contract.get("date_adjudication")
+    titre = contract.get("titre") or contract.get("titre_contrat") or contract.get("objet")
+    date_attr = contract.get("date_adjudication") or contract.get("date")
 
     existing = await db.execute(
         select(SEAOContract).where(
@@ -128,21 +126,21 @@ async def process_seao_contract(contract: dict, db: AsyncSession):
     montant = contract.get("montant")
     if montant:
         try:
-            montant = float(montant)
-        except (ValueError, TypeError):
+            montant = float(str(montant).replace(" ", "").replace(",", "."))
+        except:
             montant = None
 
     date_attribution = None
     if date_attr:
         try:
-            date_attribution = datetime.strptime(str(date_attr), "%Y-%m-%d").date()
+            date_attribution = datetime.strptime(str(date_attr)[:10], "%Y-%m-%d").date()
         except:
             pass
 
     seao_contract = SEAOContract(
         contractor_id=contractor.id,
-        titre=titre,
-        organisme=contract.get("organisme"),
+        titre=titre[:500] if titre else None,
+        organisme=contract.get("organisme") or contract.get("organisme_public"),
         montant=montant,
         date_attribution=date_attribution,
     )
@@ -150,30 +148,10 @@ async def process_seao_contract(contract: dict, db: AsyncSession):
 
 
 async def get_contrats_publics(contractor_id: int, db: AsyncSession) -> List[SEAOContract]:
-    """
-    Récupère les contrats publics SEAO pour un entrepreneur.
-    """
+    """Récupère les contrats publics SEAO pour un entrepreneur."""
     result = await db.execute(
         select(SEAOContract)
         .where(SEAOContract.contractor_id == contractor_id)
         .order_by(SEAOContract.date_attribution.desc())
     )
     return result.scalars().all()
-
-
-async def get_total_contrats_publics(contractor_id: int, db: AsyncSession) -> dict:
-    """
-    Récupère le total des contrats publics pour un entrepreneur.
-    """
-    contrats = await get_contrats_publics(contractor_id, db)
-
-    total_montant = 0
-    for c in contrats:
-        if c.montant:
-            total_montant += float(c.montant)
-
-    return {
-        "nb_contrats": len(contrats),
-        "montant_total": total_montant,
-        "organismes": list(set(c.organisme for c in contrats if c.organisme)),
-    }

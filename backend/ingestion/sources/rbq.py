@@ -1,25 +1,23 @@
 """
 Ingestion du Registre des licences RBQ (Régie du bâtiment du Québec).
 
-Source: https://www.donneesquebec.ca/recherche/dataset/licencesactives
-Formats:
-  - JSON (~69 Mo): rdl01_extractiondonneesouvertes.json
-  - ZIP (CSV): rdl01_extractiondonneesouvertes.zip
+Sources:
+- Miroir: https://ouvert.canada.ca/data/fr/dataset/755b45d6-7aee-46df-a216-748a0191c79f
+- Fallback Wayback: https://web.archive.org/web/2026/...
 
-Colonnes attendues (noms à vérifier selon le fichier réel):
-- NoLicence (numéro de licence RBQ)
-- NomEntreprise
-- Neq
-- StatutLicence (valide, suspendu, annulé, révoqué)
-- Categorie
-- SousCategorie
-- Ville
-- NbReclamations
-- MontantReclamations
+Format: JSON (~83 Mo) ou ZIP (CSV)
+
+Colonnes du JSON:
+- Numéro de licence
+- Statut de la licence
+- Nom de l'intervenant
+- NEQ
+- Municipalité
+- Catégories et sous-catégories
 """
 import zipfile
 import io
-import pandas as pd
+import json
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,93 +30,70 @@ from ingestion.transforms.normalize import normalize_name, normalize_neq, normal
 async def ingest_rbq(db: AsyncSession):
     """
     Télécharge et ingère le fichier des licences RBQ.
-    Essaie d'abord le JSON, puis le ZIP si échec.
+    Essaie: 1) URL directe, 2) Wayback Machine, 3) Miroir
     """
     print("RBQ: Téléchargement du registre des licences...")
 
-    # Essayer le JSON d'abord
-    try:
-        count = await ingest_rbq_json(db)
-        if count > 0:
-            return count
-    except Exception as e:
-        print(f"RBQ: Erreur JSON, tentative ZIP: {e}")
+    # Essayer l'URL directe d'abord
+    urls_to_try = [
+        settings.rbq_json_url,
+        f"{settings.rbq_wayback_prefix}{settings.rbq_json_url}",
+    ]
 
-    # Fallback sur le ZIP
-    try:
-        count = await ingest_rbq_zip(db)
-        return count
-    except Exception as e:
-        print(f"RBQ: Erreur ZIP: {e}")
-        return 0
+    for url in urls_to_try:
+        try:
+            print(f"RBQ: Essai de {url[:80]}...")
+            count = await ingest_rbq_from_url(url, db)
+            if count > 0:
+                return count
+        except Exception as e:
+            print(f"RBQ: Échec - {e}")
+            continue
+
+    print("RBQ: Impossible de télécharger le fichier")
+    return 0
 
 
-async def ingest_rbq_json(db: AsyncSession) -> int:
-    """
-    Ingestion du fichier JSON RBQ.
+async def ingest_rbq_from_url(url: str, db: AsyncSession) -> int:
+    """Télécharge et ingère le JSON depuis une URL."""
+    async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "application/json, text/html, */*",
+        }
+        resp = await client.get(url, headers=headers)
 
-    Structure réelle:
-    {
-      "Liste Licence": [
-        {"Licence": {"Numéro de licence": "...", "NEQ": "...", ...}},
-        ...
-      ]
-    }
-    """
-    url = settings.rbq_json_url
-    print(f"RBQ: Téléchargement JSON depuis {url}")
+        if resp.status_code != 200:
+            raise Exception(f"HTTP {resp.status_code}")
 
-    async with httpx.AsyncClient(timeout=180) as client:
-        resp = await client.get(url)
+        # Vérifier que c'est bien du JSON
+        content_type = resp.headers.get("content-type", "")
+        if "json" not in content_type and not resp.text.strip().startswith("{"):
+            raise Exception(f"Contenu non-JSON: {content_type}")
 
-    if resp.status_code != 200:
-        raise Exception(f"HTTP {resp.status_code}")
-
-    data = resp.json()
+        data = resp.json()
+        print(f"RBQ: Téléchargé {len(resp.content) / 1024 / 1024:.1f} Mo")
 
     # Extraire la liste des licences
     if isinstance(data, dict):
-        data = data.get("Liste Licence", data.get("licences", []))
+        licences = data.get("Liste Licence", data.get("licences", data.get("data", [])))
+    else:
+        licences = data
 
-    print(f"RBQ: {len(data)} enregistrements trouvés")
+    if not licences:
+        raise Exception("Aucune licence trouvée dans le fichier")
+
+    print(f"RBQ: {len(licences):,} enregistrements")
 
     # Les données sont dans une clé "Licence" pour chaque élément
     records = []
-    for item in data:
-        if "Licence" in item:
+    for item in licences:
+        if isinstance(item, dict) and "Licence" in item:
             records.append(item["Licence"])
         else:
             records.append(item)
 
     return await process_rbq_records(records, db)
-
-
-async def ingest_rbq_zip(db: AsyncSession) -> int:
-    """
-    Ingestion du fichier ZIP RBQ (contient des CSVs).
-    """
-    url = settings.rbq_zip_url
-    print(f"RBQ: Téléchargement ZIP depuis {url}")
-
-    async with httpx.AsyncClient(timeout=180) as client:
-        resp = await client.get(url)
-
-    if resp.status_code != 200:
-        raise Exception(f"HTTP {resp.status_code}")
-
-    # Extraire le ZIP
-    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-        # Trouver le fichier CSV principal
-        csv_files = [f for f in zf.namelist() if f.endswith('.csv')]
-        if not csv_files:
-            raise Exception("Aucun fichier CSV trouvé dans le ZIP")
-
-        # Lire le premier CSV
-        with zf.open(csv_files[0]) as csvfile:
-            df = pd.read_csv(csvfile, encoding='utf-8-sig', sep=',', low_memory=False)
-
-    print(f"RBQ: {len(df)} lignes dans le CSV")
-    return await process_rbq_dataframe(df, db)
 
 
 async def process_rbq_records(records: list, db: AsyncSession) -> int:
@@ -190,26 +165,16 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
                             categories_list.append(str(cat["Sous-catégories"]))
             contractor.categories_rbq = categories_list if categories_list else None
 
-            # Autre nom (nom commercial)
-            autre_nom = record.get("Autre nom")
-            # On pourrait ajouter un champ pour ça
-
             ingested += 1
 
-            if ingested % 1000 == 0:
+            if ingested % 5000 == 0:
                 await db.commit()
-                print(f"RBQ: {ingested} enregistrements traités...")
+                print(f"RBQ: {ingested:,} enregistrements traités...")
 
         except Exception as e:
             print(f"RBQ: Erreur enregistrement: {e}")
             continue
 
     await db.commit()
-    print(f"RBQ: {ingested} entrepreneurs ingérés")
+    print(f"RBQ: {ingested:,} entrepreneurs ingérés")
     return ingested
-
-
-async def process_rbq_dataframe(df: pd.DataFrame, db: AsyncSession) -> int:
-    """Traite un DataFrame pandas de données RBQ."""
-    records = df.to_dict('records')
-    return await process_rbq_records(records, db)

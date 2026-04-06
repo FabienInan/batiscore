@@ -51,16 +51,23 @@
 ```
 
 ---
-
 ## 2. Sources de données
+
+> **⚠️ Note :** Le domaine `donneesquebec.ca` a expiré et redirige vers GoDaddy (avril 2026).
+> Les URLs ci-dessous pointent vers des miroirs fonctionnels (ouvert.canada.ca, portails gouvernementaux, Wayback Machine).
+> Les fichiers de téléchargement directs (`donneesquebec.ca/.../download/...`) sont aussi cassés — il faut passer par les pages miroirs ou la Wayback Machine.
+
+---
 
 ### 2.1 RBQ — Registre des licences actives ⭐ Source principale
 
 | Attribut | Valeur |
 |---|---|
-| URL | `https://www.donneesquebec.ca/recherche/dataset/licencesactives` |
-| Format | CSV, mis à jour régulièrement |
-| Licence | Licence ouverte Québec |
+| URL (miroir) | `https://ouvert.canada.ca/data/fr/dataset/755b45d6-7aee-46df-a216-748a0191c79f` |
+| URL (originale cassée) | ~~`https://www.donneesquebec.ca/recherche/dataset/licencesactives`~~ |
+| Wayback Machine | `https://web.archive.org/web/2026*/https://www.donneesquebec.ca/recherche/dataset/licencesactives` |
+| Format | JSON + CSV (ZIP), mis à jour régulièrement |
+| Licence | CC-BY 4.0 Québec |
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ✅ Oui — nominatif |
 
@@ -75,11 +82,22 @@
 
 **Note importante :** Le registre inclut aussi les licences des 5 dernières années (pas seulement les actives). Télécharger les deux fichiers.
 
+**Liens de téléchargement direct (via Wayback Machine si cassés) :**
 ```python
-# Téléchargement
-RBQ_ACTIVES_URL = "https://www.donneesquebec.ca/recherche/dataset/licencesactives/resource/..."
-RBQ_HISTORIQUE_URL = "https://www.donneesquebec.ca/recherche/dataset/licencesactives/resource/..."
+# Téléchargement — URLs originales (cassées, utiliser Wayback Machine ou ouvert.canada.ca)
+# Page miroir ouvert.canada.ca : https://ouvert.canada.ca/data/fr/dataset/755b45d6-7aee-46df-a216-748a0191c79f
+
+# JSON
+RBQ_JSON_URL = "https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/5183fdd4-55b1-418c-8a7d-0a70058ed68d/download/rdl01_extractiondonneesouvertes.json"
+
+# CSV (ZIP)
+RBQ_CSV_URL = "https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/32f6ec46-85fd-45e9-945b-965d9235840a/download/rdl01_extractiondonneesouvertes.zip"
+
+# Fallback Wayback Machine :
+# Préfixer l'URL avec https://web.archive.org/web/2026/
 ```
+
+**Alternative directe :** Répertoire en ligne de la RBQ : `https://www.rbq.gouv.qc.ca/` (recherche par licence)
 
 ---
 
@@ -87,7 +105,10 @@ RBQ_HISTORIQUE_URL = "https://www.donneesquebec.ca/recherche/dataset/licencesact
 
 | Attribut | Valeur |
 |---|---|
-| URL | `https://www.donneesquebec.ca/recherche/dataset/registre-entreprises-ouvertes` |
+| URL (données ouvertes) | `https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/PageDonneesOuvertes.aspx` |
+| URL (Données Québec, cassée) | ~~`https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises`~~ |
+| Wayback Machine | `https://web.archive.org/web/2026*/https://www.donneesquebec.ca/recherche/fr/dataset/registre-des-entreprises` |
+| Recherche en ligne | `https://www.quebec.ca/entreprises-et-travailleurs-autonomes/obtenir-renseignements-entreprise/rechercher-entreprise-registre` |
 | Format | CSV / JSON |
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ✅ Oui — nominatif |
@@ -102,7 +123,8 @@ RBQ_HISTORIQUE_URL = "https://www.donneesquebec.ca/recherche/dataset/licencesact
 - Code SCIAN (secteur d'activité)
 
 ```python
-REQ_URL = "https://www.donneesquebec.ca/recherche/dataset/registre-entreprises-ouvertes/..."
+# Téléchargement bulk depuis le Registraire directement
+REQ_DONNEES_OUVERTES = "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/PageDonneesOuvertes.aspx"
 ```
 
 ---
@@ -116,6 +138,8 @@ REQ_URL = "https://www.donneesquebec.ca/recherche/dataset/registre-entreprises-o
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ✅ Oui — par nom ou NEQ |
 | Timing | À la demande (au moment de générer un rapport) |
+
+> ✅ **Cette URL est toujours fonctionnelle** (hébergée par l'OPC, pas sur donneesquebec.ca).
 
 **Données récupérées :**
 - Nombre de plaintes reçues
@@ -145,11 +169,21 @@ async def scrape_opc_profile(neq: str) -> dict:
 
 | Attribut | Valeur |
 |---|---|
-| URL | `https://www.donneesquebec.ca/recherche/dataset/liste-des-plaintes-recues` |
+| URL (miroir) | `https://ouvert.canada.ca/data/fr/dataset/bcc45cfc-bfb3-4afd-b162-eb76dfd4e8a3` |
+| URL (originale cassée) | ~~`https://www.donneesquebec.ca/recherche/dataset/liste-des-plaintes-recues`~~ |
 | Format | CSV mensuel (174 703 lignes analysées) |
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ❌ Non — 100% anonymisé |
 | Usage | Stats éditoriales uniquement |
+
+**Lien de téléchargement direct (dernier fichier connu) :**
+```python
+# Fichier CSV OPC plaintes — le nom de fichier change mensuellement
+# Consulter la page miroir pour le lien le plus récent :
+# https://ouvert.canada.ca/data/fr/dataset/bcc45cfc-bfb3-4afd-b162-eb76dfd4e8a3
+OPC_CSV_URL = "https://www.donneesquebec.ca/recherche/dataset/bcc45cfc-bfb3-4afd-b162-eb76dfd4e8a3/resource/b3926d33-575a-4de8-aa85-fb95c9459685/download/opc-plaintes-2026-02-23.csv"
+# ⚠️ Si cassé, préfixer avec https://web.archive.org/web/2026/
+```
 
 **Champs disponibles :** DATE, COCON (catégorie), MOTIF, COLEG (code légal), MODE_PAIEMENT, VILLE_SIEGE_SOCIAL, CODE_ACTIVITE.
 
@@ -167,6 +201,8 @@ async def scrape_opc_profile(neq: str) -> dict:
 | API | `https://api.canlii.org/v1/` (clé gratuite) |
 | Coût | Gratuit (clé API sur demande) |
 | Identifie l'entrepreneur | ✅ Oui — noms dans les jugements |
+
+> ✅ **Ces URLs sont toujours fonctionnelles** (hébergées par CanLII, pas sur donneesquebec.ca).
 
 **Données récupérées :**
 - Jugements Cour du Québec, Cour supérieure, cours municipales
@@ -195,6 +231,8 @@ async def search_canlii(company_name: str) -> list:
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ✅ Oui — nominatif (partiel) |
 
+> ✅ **Cette URL est toujours fonctionnelle** (hébergée par la CNESST, pas sur donneesquebec.ca).
+
 **Données récupérées :** Liste des employeurs en défaut de cotisation SST. Signal fort de fragilité financière.
 
 ---
@@ -203,8 +241,11 @@ async def search_canlii(company_name: str) -> list:
 
 | Attribut | Valeur |
 |---|---|
-| URL | `https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao` |
-| Format | JSON hebdomadaire |
+| URL (miroir) | `https://ouvert.canada.ca/data/fr/dataset/d23b2e02-085d-43e5-9e6e-e1d558ebfdd5` |
+| URL (originale cassée) | ~~`https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao`~~ |
+| Site officiel SEAO | `https://seao.gouv.qc.ca/` |
+| Outil Espace DATA | `http://www.espacedata.ca/` |
+| Format | JSON hebdomadaire + XML mensuel |
 | Coût | Gratuit |
 | Identifie l'entrepreneur | ✅ Oui — nominatif |
 
@@ -217,12 +258,115 @@ async def search_canlii(company_name: str) -> list:
 | Ville | URL | Format |
 |---|---|---|
 | Montréal | `https://donnees.montreal.ca/dataset/permis-de-construction` | JSON/CSV |
-| Québec | `https://www.donneesquebec.ca/recherche/dataset/permis-construction-ville-quebec` | CSV |
-| Laval | Portail données ouvertes Laval | CSV |
+| Québec | ~~`https://www.donneesquebec.ca/recherche/dataset/permis-construction-ville-quebec`~~ → Chercher sur `https://ouvert.canada.ca/data/fr/dataset?q=permis+construction+quebec` | CSV |
+| Laval | `https://www.donneesouvertes.laval.ca/` | CSV |
 
 **Usage :** Vérifier si l'entrepreneur a des chantiers actifs (signal d'activité réelle).
 
 ---
+
+### Résumé des substitutions
+
+| Source | URL cassée (donneesquebec.ca) | Alternative fonctionnelle |
+|---|---|---|
+| RBQ | `donneesquebec.ca/recherche/dataset/licencesactives` | `ouvert.canada.ca/data/fr/dataset/755b45d6-7aee-46df-a216-748a0191c79f` |
+| REQ | `donneesquebec.ca/recherche/dataset/registre-entreprises-ouvertes` | `registreentreprises.gouv.qc.ca/.../PageDonneesOuvertes.aspx` |
+| OPC CSV | `donneesquebec.ca/recherche/dataset/liste-des-plaintes-recues` | `ouvert.canada.ca/data/fr/dataset/bcc45cfc-bfb3-4afd-b162-eb76dfd4e8a3` |
+| SEAO | `donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao` | `ouvert.canada.ca/data/fr/dataset/d23b2e02-085d-43e5-9e6e-e1d558ebfdd5` |
+| Permis QC | `donneesquebec.ca/recherche/dataset/permis-construction-ville-quebec` | Chercher sur `ouvert.canada.ca` |
+
+> **Note sur les liens de téléchargement direct :** Beaucoup de fichiers CSV/JSON avaient des URLs de téléchargement sur `donneesquebec.ca/.../download/...`. Ces liens sont aussi cassés. Deux options :
+> 1. **Wayback Machine** : préfixer l'URL avec `https://web.archive.org/web/2026/`
+> 2. **ouvert.canada.ca** : les pages miroir listent les mêmes liens de téléchargement — certains pointent vers des serveurs de diffusion gouvernementaux (ex: `diffusion.mern.gouv.qc.ca`) qui eux fonctionnent encore.
+
+### Fréquence de mise à jour et stratégie de pull
+ 
+#### Fréquences déclarées par les diffuseurs
+ 
+| Source | Fréquence déclarée | Dernière MAJ connue | Notes |
+|---|---|---|---|
+| RBQ | ~Mensuel à trimestriel | 2025-11-12 | Pas de fréquence explicite dans les métadonnées. Le registre en ligne sur `rbq.gouv.qc.ca` est temps réel. |
+| REQ | Mensuel | — | Bulk dump de 2M+ entreprises via le Registraire. |
+| OPC CSV | Mensuel | 2026-02-23 | Le nom du fichier inclut la date (ex: `opc-plaintes-2026-02-23.csv`). |
+| OPC profil | Temps réel | — | Scraping à la demande, pas de dump périodique. |
+| SEAO | Hebdomadaire (JSON) + Mensuel (XML) | 2026-03-25 | Fichiers nommés `hebdo_YYYYMMDD_YYYYMMDD.json`. |
+| CNESST | Temps réel | — | Scraping à la demande, pas de dump périodique connu. |
+| CanLII | Temps réel | — | API queryable à la demande. Nouvelles décisions publiées avec un délai de 3–6 mois (petites créances). |
+| Permis MTL | ~Mensuel | — | Données ouvertes Montréal, mise à jour régulière. |
+ 
+#### Stratégie de pull recommandée
+ 
+Deux rythmes distincts à implémenter :
+ 
+**1. Batch périodique (cron) — maintenir la base locale à jour**
+ 
+| Source | Fréquence de pull | Jour recommandé | Stratégie |
+|---|---|---|---|
+| RBQ | 1x / mois | 1er du mois | Télécharger le fichier complet, diff/upsert par numéro de licence |
+| REQ | 1x / mois | 1er du mois | Bulk download, upsert par NEQ |
+| OPC CSV | 1x / mois | Fin de mois (~25) | Nouveau fichier complet remplace le précédent |
+| SEAO | 1x / semaine | Lundi | Fichier JSON hebdo, append des nouveaux contrats |
+| Permis MTL | 1x / mois | 1er du mois | Télécharger, upsert par numéro de permis |
+ 
+**2. Temps réel à la demande — au moment de générer un rapport prospect**
+ 
+| Source | Quand | Cache suggéré |
+|---|---|---|
+| OPC profil (scraping) | À chaque génération de rapport | Cache 7 jours par NEQ |
+| CNESST défauts (scraping) | À chaque génération de rapport | Cache 7 jours par nom/NEQ |
+| CanLII jugements (API) | À chaque génération de rapport | Cache 30 jours par nom d'entreprise |
+| RBQ en ligne (validation) | Optionnel — vérifier si la licence est encore valide | Cache 24h par numéro de licence |
+ 
+#### Exemple d'implémentation cron
+ 
+```python
+# crontab suggestions
+# RBQ + REQ + OPC CSV + Permis MTL : mensuel, le 1er à 3h du matin
+0 3 1 * * /usr/bin/python3 /app/scripts/pull_monthly_sources.py
+ 
+# SEAO : hebdomadaire, chaque lundi à 4h du matin
+0 4 * * 1 /usr/bin/python3 /app/scripts/pull_seao_weekly.py
+```
+ 
+```python
+# Pseudo-code pour le pull mensuel
+async def pull_monthly_sources():
+    # 1. RBQ
+    rbq_data = await download_and_extract(RBQ_CSV_URL)
+    await upsert_rbq(rbq_data, key="numero_licence")
+ 
+    # 2. REQ
+    req_data = await download_and_extract(REQ_DONNEES_OUVERTES)
+    await upsert_req(req_data, key="neq")
+ 
+    # 3. OPC CSV
+    opc_data = await download_opc_csv()  # détecte le dernier fichier disponible
+    await replace_opc_stats(opc_data)
+ 
+    # 4. Permis MTL
+    permis_data = await download_json("https://donnees.montreal.ca/dataset/permis-de-construction")
+    await upsert_permis(permis_data, key="numero_permis")
+ 
+    log.info("Pull mensuel terminé")
+```
+ 
+```python
+# Pseudo-code pour les lookups temps réel avec cache
+from functools import lru_cache
+from datetime import timedelta
+ 
+@cached(ttl=timedelta(days=7))
+async def get_opc_profile(neq: str) -> dict:
+    return await scrape_opc_profile(neq)
+ 
+@cached(ttl=timedelta(days=30))
+async def get_canlii_judgments(company_name: str) -> list:
+    return await search_canlii(company_name)
+ 
+@cached(ttl=timedelta(days=7))
+async def get_cnesst_defaults(company_name: str) -> dict:
+    return await scrape_cnesst(company_name)
+```
 
 ## 3. Modèle de données
 

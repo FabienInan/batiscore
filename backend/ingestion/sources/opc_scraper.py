@@ -5,7 +5,7 @@ Source: https://www.opc.gouv.qc.ca/consommateur/se-renseigner-sur-un-commercant/
 Méthode: Scraping HTTP (requests + BeautifulSoup)
 Timing: À la demande (au moment de générer un rapport)
 
-Note: Respecter un délai de 2-3 secondes entre requêtes.
+Note: Cette URL est fonctionnelle (hébergée par l'OPC, pas sur donneesquebec.ca).
 """
 import asyncio
 import re
@@ -53,15 +53,16 @@ async def scrape_opc_profile(neq: str, db: AsyncSession) -> dict:
     await asyncio.sleep(settings.opc_scraping_delay)
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            # Première requête: page de recherche
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept-Language": "fr-CA",
+                "Accept": "text/html,application/xhtml+xml",
+            }
             resp = await client.get(
                 OPC_SEARCH_URL,
                 params={"neq": neq},
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept-Language": "fr-CA",
-                }
+                headers=headers
             )
 
         if resp.status_code != 200:
@@ -90,7 +91,7 @@ async def scrape_opc_profile(neq: str, db: AsyncSession) -> dict:
         return data
 
     except Exception as e:
-        print(f"Erreur scraping OPC {neq}: {e}")
+        print(f"OPC: Erreur scraping {neq}: {e}")
         return {"trouve": False, "error": str(e)}
 
 
@@ -109,17 +110,20 @@ def parse_opc_page(soup: BeautifulSoup) -> dict:
     }
 
     # Chercher le bloc de résultats
-    # Note: La structure HTML exacte dépend du site OPC
-    # À ajuster selon la vraie page
-
-    # Exemple de parsing (à adapter)
-    results_div = soup.find("div", class_="resultats-recherche")
+    # La structure HTML dépend du site OPC
+    results_div = soup.find("div", class_="resultats")
     if not results_div:
-        # Essayer d'autres sélecteurs
         results_div = soup.find("section", {"id": "resultats"})
+    if not results_div:
+        results_div = soup.find("div", {"class": "commercant-info"})
 
     if not results_div:
-        return result
+        # Vérifier si la page indique "aucun résultat"
+        text = soup.get_text().lower()
+        if "aucun" in text and "commercant" in text:
+            return result
+        # Peut-être une page de résultats différente
+        pass
 
     result["trouve"] = True
 
@@ -130,10 +134,20 @@ def parse_opc_page(soup: BeautifulSoup) -> dict:
         if match:
             result["nb_plaintes"] = int(match.group(1))
 
+    # Alternative: chercher dans le texte
+    if result["nb_plaintes"] == 0:
+        for elem in soup.find_all(["p", "span", "div"]):
+            text = elem.get_text().lower()
+            if "plainte" in text:
+                match = re.search(r"(\d+)\s*plainte", text)
+                if match:
+                    result["nb_plaintes"] = int(match.group(1))
+                    break
+
     # Mises en garde
-    for alert in soup.find_all("div", class_="mise-en-garde"):
+    for alert in soup.find_all(["div", "section"], class_=["mise-en-garde", "alerte", "warning"]):
         text = alert.get_text(strip=True)
-        if text:
+        if text and len(text) < 500:
             result["mises_en_garde"].append(text)
 
     # Types d'infractions
@@ -189,26 +203,3 @@ async def get_opc_plaintes_for_contractor(contractor_id: int, db: AsyncSession) 
 
     await db.commit()
     return existing
-
-
-async def batch_scrape_opc(db: AsyncSession, limit: int = 100):
-    """
-    Scrape les profils OPC pour les entrepreneurs sans données OPC.
-    À utiliser avec prudence (rate limiting).
-    """
-    result = await db.execute(
-        select(Contractor)
-        .where(Contractor.neq != None)
-        .where(Contractor.statut_rbq == "valide")
-        .limit(limit)
-    )
-    contractors = result.scalars().all()
-
-    scraped = 0
-    for contractor in contractors:
-        if contractor.neq:
-            await scrape_opc_profile(contractor.neq, db)
-            scraped += 1
-            print(f"OPC: {scraped}/{len(contractors)} - {contractor.nom_legal}")
-
-    return scraped

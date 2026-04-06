@@ -1,10 +1,10 @@
 """
 Intégration API CanLII pour les jugements publiés.
 
-Source: https://api.canlii.org/v1/
-Documentation: https://www.canlii.org/en/info/help.html#api
+Source: https://www.canlii.org/fr/qc/
+API: https://api.canlii.org/v1/ (clé gratuite sur demande)
 
-Note: Clé API gratuite requise.
+Note: Ces URLs sont fonctionnelles (hébergées par CanLII).
 """
 import asyncio
 from datetime import datetime
@@ -19,16 +19,12 @@ from config import settings
 from models import Contractor, Litige
 
 
-CANLII_API_BASE = "https://api.canlii.org/v1"
-
-
-async def search_canlii(company_name: str, db: Optional[AsyncSession] = None) -> List[dict]:
+async def search_canlii(company_name: str) -> List[dict]:
     """
     Recherche les jugements CanLII pour une entreprise.
 
     Args:
         company_name: Nom de l'entreprise à rechercher
-        db: Session DB optionnelle pour sauvegarder les résultats
 
     Returns:
         Liste des jugements trouvés
@@ -41,8 +37,7 @@ async def search_canlii(company_name: str, db: Optional[AsyncSession] = None) ->
 
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            # Recherche dans les décisions québécoises
-            url = f"{CANLII_API_BASE}/caseBrowse/fr/qc/"
+            url = f"{settings.canlii_base_url}/caseBrowse/fr/qc/"
             params = {
                 "keyword": company_name,
                 "api_key": settings.canlii_api_key,
@@ -72,16 +67,6 @@ async def search_canlii(company_name: str, db: Optional[AsyncSession] = None) ->
 def parse_canlii_case(case: dict) -> dict:
     """
     Parse un résultat CanLII.
-
-    Structure attendue:
-    {
-        "caseId": "2019qccs1234",
-        "citation": "2019 QCCS 1234",
-        "title": "Tremblay c. Construction ABC inc.",
-        "date": "2019-05-15",
-        "court": "Cour supérieure",
-        "url": "https://www.canlii.org/fr/qc/qccs/doc/2019/..."
-    }
     """
     return {
         "canlii_id": case.get("caseId", ""),
@@ -89,7 +74,7 @@ def parse_canlii_case(case: dict) -> dict:
         "title": case.get("title", ""),
         "date": case.get("date"),
         "court": case.get("court", ""),
-        "url": case.get("url", f"https://www.canlii.org/fr/qc/{case.get('caseId', '')}"),
+        "url": case.get("url", f"{settings.canlii_site_url}{case.get('caseId', '')}"),
     }
 
 
@@ -111,19 +96,18 @@ async def get_litiges_for_contractor(contractor_id: int, db: AsyncSession) -> Li
     )
     existing = litiges_result.scalars().all()
 
-    # Si déjà des données récentes, les retourner
+    # Si déjà des données, les retourner
     if existing:
         return existing
 
     # Rechercher sur CanLII
-    # Essayer avec le nom légal et les variantes
-    search_terms = [contractor.nom_legal]
+    search_terms = [contractor.nom_legal] if contractor.nom_legal else []
     if contractor.neq:
         search_terms.append(contractor.neq)
 
     all_cases = []
     for term in search_terms:
-        cases = await search_canlii(term, db)
+        cases = await search_canlii(term)
         all_cases.extend(cases)
         await asyncio.sleep(0.5)  # Rate limiting
 
@@ -135,7 +119,7 @@ async def get_litiges_for_contractor(contractor_id: int, db: AsyncSession) -> Li
             continue
         seen_ids.add(canlii_id)
 
-        # Déterminer l'issue (condamné, acquitté, réglé, en_cours)
+        # Déterminer l'issue
         issue = determine_issue(case.get("title", ""), case.get("citation", ""))
 
         # Créer l'entrée Litige
@@ -170,7 +154,7 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
 
 
 def determine_litige_type(title: str) -> str:
-    """Détermine le type de litige basé sur le titre."""
+    """Détermine le type de litige."""
     title_lower = title.lower()
 
     if "petites créances" in title_lower:
@@ -179,34 +163,21 @@ def determine_litige_type(title: str) -> str:
         return "construction"
     elif "salaire" in title_lower or "paie" in title_lower:
         return "travail"
-    elif "bail" in title_lower or "locatif" in title_lower:
+    elif "bail" in title_lower:
         return "bail"
     else:
         return "civil"
 
 
 def determine_issue(title: str, citation: str) -> str:
-    """
-    Détermine l'issue du litige.
-
-    Note: C'est une approximation basée sur le titre.
-    Une analyse plus précise nécessiterait de lire le contenu du jugement.
-    """
+    """Détermine l'issue du litige."""
     title_lower = title.lower()
 
-    # Mots-clés suggérant une condamnation
-    condamnation_keywords = ["condamné", "payer", "dommages", "accord partiel", "rejet"]
-    if any(kw in title_lower for kw in condamnation_keywords):
+    if any(kw in title_lower for kw in ["condamné", "payer", "dommages"]):
         return "condamné"
-
-    # Mots-clés suggérant un acquittement
-    acquittement_keywords = ["acquitté", "rejeté", "mal fondé", "sans cause"]
-    if any(kw in title_lower for kw in acquittement_keywords):
+    if any(kw in title_lower for kw in ["acquitté", "rejeté", "mal fondé"]):
         return "acquitté"
-
-    # Mots-clés suggérant un règlement
-    reglement_keywords = ["règlement", "transaction", "entente"]
-    if any(kw in title_lower for kw in reglement_keywords):
+    if any(kw in title_lower for kw in ["règlement", "transaction", "entente"]):
         return "réglé"
 
     return "en_cours"

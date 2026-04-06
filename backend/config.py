@@ -24,28 +24,38 @@ class Settings(BaseSettings):
     prix_complet: int = 799
     prix_premium: int = 1299
 
-    # URLs des sources RBQ (licences actives)
-    # JSON: https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/5183fdd4-55b1-418c-8a7d-0a70058ed68d/download/rdl01_extractiondonneesouvertes.json
-    # ZIP (CSV): https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/32f6ec46-85fd-45e9-945b-965d9235840a/download/rdl01_extractiondonneesouvertes.zip
+    # =============================================================================
+    # URLs des sources de données
+    # Note: donneesquebec.ca a expiré (avril 2026) - utiliser les miroirs
+    # =============================================================================
+
+    # RBQ — Registre des licences
+    # Miroir: ouvert.canada.ca
+    # Fallback: Wayback Machine (préfixer avec https://web.archive.org/web/2026/)
+    rbq_mirror_url: str = "https://ouvert.canada.ca/data/fr/dataset/755b45d6-7aee-46df-a216-748a0191c79f"
     rbq_json_url: str = "https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/5183fdd4-55b1-418c-8a7d-0a70058ed68d/download/rdl01_extractiondonneesouvertes.json"
     rbq_zip_url: str = "https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/32f6ec46-85fd-45e9-945b-965d9235840a/download/rdl01_extractiondonneesouvertes.zip"
+    # Wayback fallback:
+    rbq_wayback_prefix: str = "https://web.archive.org/web/2026/"
 
-    # URLs des sources REQ (Registre des entreprises)
-    # Page: https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises
-    # Le fichier ZIP contient 6 CSVs avec NEQ comme identifiant unique
-    req_zip_url: str = "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
+    # REQ — Registre des entreprises du Québec
+    # URL directe du Registraire (toujours fonctionnelle)
+    req_url: str = "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/PageDonneesOuvertes.aspx"
 
-    # URL SEAO (appels d'offres publics)
-    # Utiliser le fichier le plus récent: https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao
-    seao_url: str = "https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao"
+    # SEAO — Appels d'offres publics
+    # Miroir: ouvert.canada.ca
+    seao_mirror_url: str = "https://ouvert.canada.ca/data/fr/dataset/d23b2e02-085d-43e5-9e6e-e1d558ebfdd5"
+    seao_official_url: str = "https://seao.gouv.qc.ca/"
 
-    # CNESST - Employeurs contrevenants
-    # Page: https://www.cnesst.gouv.qc.ca/fr/salle-presse/employeurs-contrevenants
-    # Pas de téléchargement direct - scraping requis
+    # CNESST — Employeurs contrevenants (URL fonctionnelle)
     cnesst_url: str = "https://www.cnesst.gouv.qc.ca/fr/salle-presse/employeurs-contrevenants"
 
-    # OPC - Profil commerçant
+    # OPC — Profil commerçant (URL fonctionnelle)
     opc_search_url: str = "https://www.opc.gouv.qc.ca/consommateur/se-renseigner-sur-un-commercant/"
+
+    # CanLII — Jugements (URLs fonctionnelles)
+    canlii_base_url: str = "https://api.canlii.org/v1"
+    canlii_site_url: str = "https://www.canlii.org/fr/qc/"
 
     class Config:
         env_file = ".env"
