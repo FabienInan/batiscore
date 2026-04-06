@@ -57,11 +57,13 @@ async def ingest_rbq_json(db: AsyncSession) -> int:
     """
     Ingestion du fichier JSON RBQ.
 
-    Structure attendue (à vérifier):
-    [
-        {"NoLicence": "1234-5678-90", "NomEntreprise": "...", ...},
+    Structure réelle:
+    {
+      "Liste Licence": [
+        {"Licence": {"Numéro de licence": "...", "NEQ": "...", ...}},
         ...
-    ]
+      ]
+    }
     """
     url = settings.rbq_json_url
     print(f"RBQ: Téléchargement JSON depuis {url}")
@@ -74,13 +76,21 @@ async def ingest_rbq_json(db: AsyncSession) -> int:
 
     data = resp.json()
 
-    # Le JSON peut être une liste ou un dict avec une clé 'licences'
+    # Extraire la liste des licences
     if isinstance(data, dict):
-        data = data.get("licences", data.get("data", []))
+        data = data.get("Liste Licence", data.get("licences", []))
 
     print(f"RBQ: {len(data)} enregistrements trouvés")
 
-    return await process_rbq_records(data, db)
+    # Les données sont dans une clé "Licence" pour chaque élément
+    records = []
+    for item in data:
+        if "Licence" in item:
+            records.append(item["Licence"])
+        else:
+            records.append(item)
+
+    return await process_rbq_records(records, db)
 
 
 async def ingest_rbq_zip(db: AsyncSession) -> int:
@@ -117,8 +127,8 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
 
     for record in records:
         try:
-            # Normaliser les noms de champs (peut varier selon le fichier)
-            licence = normalize_licence_rbq(str(record.get("NoLicence") or record.get("NO_LICENCE") or record.get("no_licence", "")))
+            # Noms de champs exacts du fichier JSON RBQ
+            licence = normalize_licence_rbq(str(record.get("Numéro de licence", "")))
 
             if not licence:
                 continue
@@ -133,53 +143,60 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
                 contractor = Contractor(licence_rbq=licence)
                 db.add(contractor)
 
-            # Mettre à jour les champs
-            nom = record.get("NomEntreprise") or record.get("NOM_ENTREPRISE") or record.get("nom_entreprise", "")
+            # Mettre à jour les champs avec les noms réels
+            nom = record.get("Nom de l'intervenant", "")
             contractor.nom_legal = str(nom)[:255] if nom else None
             contractor.nom_normalized = normalize_name(str(nom)) if nom else None
 
-            neq = record.get("Neq") or record.get("NEQ") or record.get("neq")
+            neq = record.get("NEQ")
             contractor.neq = normalize_neq(str(neq)) if neq else None
 
-            # Statut
-            statut = str(record.get("StatutLicence") or record.get("STATUT") or record.get("statut_licence", "")).lower()
-            contractor.statut_rbq = statut if statut in ["valide", "suspendu", "annulé", "révoqué"] else None
+            # Statut (Active, Suspendue, Annulée, etc.)
+            statut = str(record.get("Statut de la licence", "")).lower()
+            statut_map = {
+                "active": "valide",
+                "suspendue": "suspendu",
+                "annulée": "annulé",
+                "révoquée": "révoqué",
+                "expirée": "expiré",
+            }
+            contractor.statut_rbq = statut_map.get(statut, statut)
 
-            # Ville
-            ville = record.get("Ville") or record.get("VILLE") or record.get("ville")
+            # Ville/Municipalité
+            ville = record.get("Municipalité")
             contractor.ville = str(ville) if ville else None
 
+            # Adresse
+            adresse = record.get("Adresse")
+            contractor.adresse = str(adresse)[:255] if adresse else None
+
+            # Téléphone
+            tel = record.get("Numéro de téléphone")
+            contractor.telephone = str(tel) if tel else None
+
+            # Type de licence / Forme juridique
+            type_licence = record.get("Type de licence")
+            contractor.forme_juridique = str(type_licence) if type_licence else None
+
             # Catégories
-            categories = record.get("Categorie") or record.get("CATEGORIES") or record.get("categorie", "")
-            if categories:
-                contractor.categories_rbq = [c.strip() for c in str(categories).split(",")]
+            categories_data = record.get("Catégories et sous-catégories", [])
+            categories_list = []
+            if isinstance(categories_data, list):
+                for cat in categories_data:
+                    if isinstance(cat, dict):
+                        if "Categorie" in cat:
+                            categories_list.append(cat["Categorie"])
+                        if "Sous-catégories" in cat:
+                            categories_list.append(str(cat["Sous-catégories"]))
+            contractor.categories_rbq = categories_list if categories_list else None
 
-            # Réclamations
-            nb_recl = record.get("NbReclamations") or record.get("NB_RECLAMATIONS") or record.get("nb_reclamations", 0)
-            try:
-                nb_reclamations = int(nb_recl) if nb_recl else 0
-            except:
-                nb_reclamations = 0
-
-            if nb_reclamations > 0 and contractor.id:
-                # Vérifier si l'événement existe déjà
-                existing = await db.execute(
-                    select(RBQEvent).where(
-                        RBQEvent.contractor_id == contractor.id,
-                        RBQEvent.event_type == "réclamation"
-                    )
-                )
-                if not existing.scalar_one_or_none():
-                    event = RBQEvent(
-                        contractor_id=contractor.id,
-                        event_type="réclamation",
-                        description=f"{nb_reclamations} réclamation(s) au cautionnement"
-                    )
-                    db.add(event)
+            # Autre nom (nom commercial)
+            autre_nom = record.get("Autre nom")
+            # On pourrait ajouter un champ pour ça
 
             ingested += 1
 
-            if ingested % 500 == 0:
+            if ingested % 1000 == 0:
                 await db.commit()
                 print(f"RBQ: {ingested} enregistrements traités...")
 
