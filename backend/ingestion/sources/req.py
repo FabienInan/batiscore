@@ -33,23 +33,21 @@ REQ_WAYBACK_URL = (
 
 async def ingest_req(db: AsyncSession) -> int:
     """
-    Ingère le fichier REQ.
-    Priorité: 1) fichier local data/req.zip, 2) Wayback Machine
+    Ingère le fichier REQ depuis un fichier local obligatoire.
+
+    Télécharger manuellement avant de lancer l'ingestion :
+        wget -O /var/www/batiscore/backend/data/req.zip \\
+          "https://web.archive.org/web/20250816182804if_/https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
     """
-    # 1. Fichier local
-    if LOCAL_REQ_PATH.exists():
-        print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
-        return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
-
-    print("REQ: Pas de fichier local, tentative Wayback Machine...")
-    print(f"REQ: (Pour éviter ça: curl -L -o {LOCAL_REQ_PATH} '<URL_WAYBACK>')")
-
-    try:
-        return await _download_and_ingest(REQ_WAYBACK_URL, db)
-    except Exception as e:
-        print(f"REQ: Échec Wayback - {e}")
-        print(f"REQ: Placez le fichier ZIP dans {LOCAL_REQ_PATH}")
+    if not LOCAL_REQ_PATH.exists():
+        print("REQ: Fichier local introuvable.")
+        print(f"REQ: Téléchargez-le manuellement avec :")
+        print(f'  wget -O {LOCAL_REQ_PATH} \\')
+        print(f'    "{REQ_WAYBACK_URL}"')
         return 0
+
+    print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
+    return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
 
 
 async def _download_and_ingest(url: str, db: AsyncSession) -> int:
