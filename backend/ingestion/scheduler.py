@@ -18,6 +18,8 @@ from ingestion.sources.rbq import ingest_rbq
 from ingestion.sources.req import ingest_req
 from ingestion.sources.seao import ingest_seao
 from ingestion.sources.cnesst import scrape_cnesst_default_list
+from ingestion.sources.rbq_decisions import ingest_rbq_decisions
+from ingestion.sources.canlii import ingest_canlii_rbq
 from scoring.engine import recalculate_all_scores
 
 
@@ -71,6 +73,28 @@ async def run_cnesst_scraping():
         logger.error(f"Erreur scraping CNESST: {e}")
 
 
+async def run_rbq_decisions():
+    """Tâche: Scraping décisions Bureau des régisseurs (60 derniers jours)."""
+    logger.info("Début scraping RBQ décisions...")
+    try:
+        async with async_session() as db:
+            await ingest_rbq_decisions(db)
+        logger.info("Scraping RBQ décisions terminé")
+    except Exception as e:
+        logger.error(f"Erreur scraping RBQ décisions: {e}")
+
+
+async def run_canlii():
+    """Tâche: Ingestion CanLII qcrbq (décisions historiques)."""
+    logger.info("Début ingestion CanLII...")
+    try:
+        async with async_session() as db:
+            await ingest_canlii_rbq(db)
+        logger.info("Ingestion CanLII terminée")
+    except Exception as e:
+        logger.error(f"Erreur ingestion CanLII: {e}")
+
+
 async def run_scoring():
     """Tâche: Recalcul des scores quotidien."""
     logger.info("Début recalcul scores...")
@@ -121,6 +145,24 @@ def setup_scheduler():
         replace_existing=True,
     )
 
+    # RBQ Décisions (Bureau des régisseurs) - tous les jours à 5h45
+    scheduler.add_job(
+        run_rbq_decisions,
+        CronTrigger(hour=5, minute=45),
+        id="rbq_decisions_daily",
+        name="Scraping décisions RBQ quotidien",
+        replace_existing=True,
+    )
+
+    # CanLII qcrbq - tous les dimanches à 2h (rate limit: 5000 req/jour)
+    scheduler.add_job(
+        run_canlii,
+        CronTrigger(day_of_week="sun", hour=2, minute=0),
+        id="canlii_weekly",
+        name="Ingestion CanLII hebdomadaire",
+        replace_existing=True,
+    )
+
     # Scoring - tous les jours à 6h
     scheduler.add_job(
         run_scoring,
@@ -130,7 +172,7 @@ def setup_scheduler():
         replace_existing=True,
     )
 
-    logger.info("Scheduler configuré avec 5 tâches")
+    logger.info("Scheduler configuré avec 7 tâches")
 
 
 def start_scheduler():

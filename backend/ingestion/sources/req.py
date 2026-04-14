@@ -1,138 +1,219 @@
 """
 Ingestion du Registre des entreprises du Québec (REQ).
 
-Source directe: https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/PageDonneesOuvertes.aspx
-Format: ZIP contenant 6 fichiers CSV
-Jointure: NEQ (clé avec RBQ)
+Sources (par ordre de priorité):
+1. Fichier local : backend/data/req.zip  (télécharger manuellement)
+   curl -L -o backend/data/req.zip "https://web.archive.org/web/20250816182804if_/https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
+2. Wayback Machine (snapshot 2025-08-16, ~245 Mo)
+3. URL directe Registraire (403 Forbidden en 2026)
 
-Note: Le site donneesquebec.ca a expiré - utiliser l'URL directe du Registraire.
+Format: ZIP contenant plusieurs fichiers CSV
+Jointure: NEQ (clé avec RBQ)
 """
-import pandas as pd
+import io
+import zipfile
+from pathlib import Path
+
 import httpx
-from sqlalchemy import select
+import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
+from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor
-from ingestion.transforms.normalize import normalize_name, normalize_neq
+
+LOCAL_REQ_PATH = Path(__file__).parent.parent.parent / "data" / "req.zip"
+
+REQ_WAYBACK_URL = (
+    "https://web.archive.org/web/20250816182804if_/"
+    "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/"
+    "GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
+)
 
 
-async def ingest_req(db: AsyncSession):
+async def ingest_req(db: AsyncSession) -> int:
     """
-    Ingestion du fichier REQ depuis le site officiel du Registraire.
-
-    Le fichier ZIP contient 6 CSVs:
-    - Personne (informations de base)
-    - Adresse
-    - Nom (dénominations)
-    - etc.
-
-    NEQ est l'identifiant unique dans tous les fichiers.
+    Ingère le fichier REQ.
+    Priorité: 1) fichier local data/req.zip, 2) Wayback Machine
     """
-    print("REQ: Téléchargement depuis le Registraire des entreprises...")
+    # 1. Fichier local
+    if LOCAL_REQ_PATH.exists():
+        print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
+        return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
+
+    print("REQ: Pas de fichier local, tentative Wayback Machine...")
+    print(f"REQ: (Pour éviter ça: curl -L -o {LOCAL_REQ_PATH} '<URL_WAYBACK>')")
 
     try:
-        # L'URL directe du Registraire nécessite souvent un téléchargement manuel
-        # car le site peut avoir des protections ou des sessions
-        print(f"REQ: URL - {settings.req_url}")
-        print("REQ: Note - Le téléchargement peut nécessiter une intervention manuelle")
-        print("REQ: Consulter la page et télécharger le fichier ZIP")
-
-        # Pour l'instant, on simule une ingestion vide
-        # En production, le fichier ZIP sera placé manuellement ou via un autre canal
-        return 0
-
+        return await _download_and_ingest(REQ_WAYBACK_URL, db)
     except Exception as e:
-        print(f"REQ: Erreur - {e}")
+        print(f"REQ: Échec Wayback - {e}")
+        print(f"REQ: Placez le fichier ZIP dans {LOCAL_REQ_PATH}")
         return 0
+
+
+async def _download_and_ingest(url: str, db: AsyncSession) -> int:
+    """Télécharge et ingère le ZIP REQ depuis une URL."""
+    print(f"REQ: Téléchargement de {url[:80]}...")
+    async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
+        resp = await client.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+        )
+    if resp.status_code != 200:
+        raise Exception(f"HTTP {resp.status_code}")
+
+    print(f"REQ: Téléchargé {len(resp.content) / 1024 / 1024:.1f} Mo")
+
+    # Sauvegarder localement pour les prochaines fois
+    LOCAL_REQ_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LOCAL_REQ_PATH.write_bytes(resp.content)
+    print(f"REQ: Sauvegardé dans {LOCAL_REQ_PATH}")
+
+    return await _parse_zip(resp.content, db)
 
 
 async def ingest_req_from_file(filepath: str, db: AsyncSession) -> int:
-    """
-    Ingestion du fichier REQ depuis un fichier local (ZIP).
+    """Ingère le fichier REQ depuis un ZIP local."""
+    with open(filepath, "rb") as f:
+        content = f.read()
+    return await _parse_zip(content, db)
 
-    Usage:
-        python -m ingestion.run --source req --file /path/to/req.zip
-    """
-    import zipfile
 
-    print(f"REQ: Lecture du fichier {filepath}")
+STATUT_REQ_MAP = {
+    "IM": "actif",
+    "AI": "actif",
+    "RO": "radié",
+    "RD": "radié",
+    "RX": "radié",
+    "NI": "non_immatriculé",
+}
 
-    with zipfile.ZipFile(filepath) as zf:
-        # Lister les fichiers CSV
-        csv_files = [f for f in zf.namelist() if f.endswith('.csv')]
-        print(f"REQ: {len(csv_files)} fichiers CSV trouvés")
 
-        # Le fichier principal est souvent "Personne" ou similaire
-        main_file = None
-        for f in csv_files:
-            if "personne" in f.lower() or "morale" in f.lower():
-                main_file = f
-                break
+async def _parse_zip(content: bytes, db: AsyncSession) -> int:
+    """Parse le ZIP REQ et ingère les enregistrements."""
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        csv_files = [f for f in zf.namelist() if f.lower().endswith(".csv")]
+        print(f"REQ: {len(csv_files)} fichiers CSV dans le ZIP: {csv_files}")
 
+        # Charger Nom.csv pour les raisons sociales secondaires
+        noms_secondaires: dict[str, list[str]] = {}
+        if "Nom.csv" in zf.namelist():
+            print("REQ: Lecture de Nom.csv (raisons sociales secondaires)...")
+            with zf.open("Nom.csv") as f:
+                df_noms = pd.read_csv(f, encoding="utf-8-sig", low_memory=False)
+                df_noms.columns = [c.strip().upper() for c in df_noms.columns]
+                # TYP_NOM_ASSUJ='M' = nom commercial / raison sociale secondaire, STAT_NOM='A' = actif
+                mask = (df_noms.get("TYP_NOM_ASSUJ", pd.Series(dtype=str)) == "M") & \
+                       (df_noms.get("STAT_NOM", pd.Series(dtype=str)) == "A")
+                for _, row in df_noms[mask].iterrows():
+                    neq = normalize_neq(str(row.get("NEQ", "")))
+                    nom = str(row.get("NOM_ASSUJ", "")).strip()
+                    if neq and nom:
+                        noms_secondaires.setdefault(neq, []).append(nom)
+            print(f"REQ: {len(noms_secondaires):,} entreprises avec raisons sociales secondaires")
+
+        # Fichier principal : Entreprise.csv ou premier CSV
+        main_file = next(
+            (f for f in csv_files if any(k in f.lower() for k in ("entreprise", "personne", "morale"))),
+            csv_files[0] if csv_files else None,
+        )
         if not main_file:
-            main_file = csv_files[0]
+            print("REQ: Aucun fichier CSV trouvé dans le ZIP")
+            return 0
 
         print(f"REQ: Lecture de {main_file}")
-
         with zf.open(main_file) as csvfile:
-            df = pd.read_csv(csvfile, encoding='utf-8-sig', low_memory=False)
+            df = pd.read_csv(csvfile, encoding="utf-8-sig", low_memory=False)
 
-    print(f"REQ: {len(df):,} enregistrements")
+    print(f"REQ: {len(df):,} enregistrements — colonnes: {list(df.columns[:8])}")
+    return await process_req_dataframe(df, noms_secondaires, db)
 
-    return await process_req_dataframe(df, db)
 
-
-async def process_req_dataframe(df: pd.DataFrame, db: AsyncSession) -> int:
-    """Traite un DataFrame REQ."""
+async def process_req_dataframe(df: pd.DataFrame, noms_secondaires: dict, db: AsyncSession) -> int:
+    """Traite un DataFrame REQ et met à jour la base avec lookups en mémoire."""
     updated = 0
     created = 0
 
+    df.columns = [c.strip().upper() for c in df.columns]
+
+    # Précharger tous les contractors en mémoire
+    idx = await ContractorIndex.load(db)
+
     for _, row in df.iterrows():
         try:
-            neq = normalize_neq(str(row.get("NEQ") or row.get("neq") or ""))
+            neq_raw = row.get("NEQ") or row.get("NO_ENTREPRISE") or ""
+            neq = normalize_neq(str(neq_raw))
             if not neq or len(neq) != 10:
                 continue
 
-            # Chercher l'entrepreneur existant par NEQ
-            result = await db.execute(
-                select(Contractor).where(Contractor.neq == neq)
-            )
-            contractor = result.scalar_one_or_none()
+            # Lookup O(1) par NEQ d'abord
+            contractor = idx.by_neq.get(neq)
 
-            # Si pas trouvé par NEQ, essayer par nom
+            # Puis par nom normalisé si pas trouvé
             if not contractor:
-                nom = str(row.get("NOM") or row.get("nom_legal") or "")
-                nom_norm = normalize_name(nom)
+                nom_raw = str(row.get("NOM") or row.get("NOM_ASSUJ") or row.get("NOM_LEGAL") or "")
+                nom_norm = normalize_name(nom_raw)
                 if nom_norm:
-                    result = await db.execute(
-                        select(Contractor).where(Contractor.nom_normalized == nom_norm)
-                    )
-                    contractor = result.scalar_one_or_none()
+                    contractor = idx.by_nom.get(nom_norm)
+
+            # Statut : COD_STAT_IMMAT + IND_FAIL
+            cod_statut = str(row.get("COD_STAT_IMMAT") or "").strip().upper()
+            ind_fail = str(row.get("IND_FAIL") or "").strip().upper()
+            if ind_fail == "O":
+                statut_req = "faillite"
+            else:
+                statut_req = STATUT_REQ_MAP.get(cod_statut)
+
+            # Date de fondation : DAT_CONSTI (constitution) ou DAT_IMMAT (immatriculation)
+            date_fondation = None
+            for col in ("DAT_CONSTI", "DAT_IMMAT"):
+                val = str(row.get(col) or "").strip()
+                if val and val != "nan":
+                    try:
+                        from datetime import date as _date
+                        date_fondation = _date.fromisoformat(val[:10])
+                        break
+                    except ValueError:
+                        pass
+
+            noms_sec = noms_secondaires.get(neq)
 
             if contractor:
-                # Mettre à jour les champs REQ
                 contractor.neq = neq
-                statut = str(row.get("STATUT") or row.get("statut") or "").lower()
-                contractor.statut_req = statut if statut else None
+                if statut_req:
+                    contractor.statut_req = statut_req
+                if date_fondation and not contractor.date_fondation:
+                    contractor.date_fondation = date_fondation
+                if noms_sec:
+                    contractor.noms_secondaires = noms_sec
                 updated += 1
             else:
-                # Créer un nouveau contractor
-                nom = str(row.get("NOM") or row.get("nom_legal") or "")
+                nom_raw = str(row.get("NOM") or row.get("NOM_ASSUJ") or row.get("NOM_LEGAL") or "")
+                if not nom_raw.strip():
+                    continue
                 contractor = Contractor(
                     neq=neq,
-                    nom_legal=nom[:255] if nom else None,
-                    nom_normalized=normalize_name(nom) if nom else None,
-                    statut_req=str(row.get("STATUT") or "").lower() if row.get("STATUT") else None,
+                    nom_legal=nom_raw[:255],
+                    nom_normalized=normalize_name(nom_raw),
+                    statut_req=statut_req,
+                    date_fondation=date_fondation,
+                    noms_secondaires=noms_sec,
                 )
                 db.add(contractor)
+                # Mettre à jour l'index
+                if contractor.neq:
+                    idx.by_neq[contractor.neq] = contractor
+                if contractor.nom_normalized:
+                    idx.by_nom[contractor.nom_normalized] = contractor
                 created += 1
 
-            if (updated + created) % 500 == 0:
+            if (updated + created) % 5000 == 0:
                 await db.commit()
+                print(f"REQ: {updated + created:,} traités...")
 
         except Exception as e:
-            print(f"REQ: Erreur - {e}")
+            print(f"REQ: Erreur enregistrement - {e}")
             continue
 
     await db.commit()

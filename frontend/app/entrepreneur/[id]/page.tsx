@@ -3,6 +3,10 @@
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ShieldCheck, AlertTriangle, ArrowLeft } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface Contractor {
   id: number
@@ -37,93 +41,107 @@ export default function EntrepreneurPage() {
     }
   }
 
+  const getScoreColor = (score: number | null) => {
+    if (score === null) return 'text-slate-400'
+    if (score >= 85) return 'text-emerald-400'
+    if (score >= 70) return 'text-amber-400'
+    if (score >= 50) return 'text-orange-400'
+    return 'text-red-400'
+  }
+
+  const getScoreBg = (score: number | null) => {
+    if (score === null) return 'bg-slate-800 border-slate-700'
+    if (score >= 85) return 'bg-emerald-500/10 border-emerald-500/20'
+    if (score >= 70) return 'bg-amber-500/10 border-amber-500/20'
+    if (score >= 50) return 'bg-orange-500/10 border-orange-500/20'
+    return 'bg-red-500/10 border-red-500/20'
+  }
+
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Chargement...</p>
+      <main className="min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl space-y-6">
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
       </main>
     )
   }
 
   if (!contractor) {
     return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Entrepreneur non trouvé</h1>
-          <Link href="/" className="text-blue-600 hover:underline">Retour à la recherche</Link>
+      <main className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle size={40} className="text-red-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Entrepreneur non trouvé</h1>
+          <Link href="/">
+            <Button variant="accent">Retour à la recherche</Button>
+          </Link>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <Link href="/" className="text-xl font-semibold text-gray-900">RBQ Checker</Link>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          {/* Nom et infos de base */}
-          <h1 className="text-2xl font-bold text-gray-900">{contractor.nom}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {contractor.ville && `${contractor.ville} · `}
-            {contractor.licence_rbq && `RBQ ${contractor.licence_rbq}`}
-            {contractor.neq && ` · NEQ ${contractor.neq}`}
-          </p>
-
-          {/* Statut licence */}
-          <div className="mt-6">
-            {contractor.statut_rbq === 'valide' ? (
-              <div className="px-4 py-3 rounded-lg bg-green-50 border border-green-200">
-                <span className="font-medium text-green-800">Licence RBQ valide</span>
-                {contractor.categories && contractor.categories.length > 0 && (
-                  <div className="mt-2 flex gap-2 flex-wrap">
-                    {contractor.categories.map((cat, i) => (
-                      <span key={i} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
-                        {cat}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200">
-                <span className="font-medium text-red-800">
-                  Licence {contractor.statut_rbq || 'invalide'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Score (flou) */}
-          <div className="mt-6 relative">
-            <div className="text-5xl font-bold text-gray-300 blur-sm select-none">
-              {contractor.score ?? '?'}
-              <span className="text-xl text-gray-400"> / 100</span>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm text-gray-600 bg-white/80 px-2 py-1 rounded">
-                Score visible dans le rapport complet
-              </span>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <Link
-            href={`/rapport/${contractor.id}/checkout`}
-            className="mt-8 block w-full text-center py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Voir le rapport complet — 7,99 $
+    <main className="min-h-screen">
+      {/* Dark hero */}
+      <section className="bg-slate-900 py-10 lg:py-14">
+        <div className="max-w-2xl mx-auto px-4">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 cursor-pointer">
+            <ArrowLeft size={16} />
+            Retour
           </Link>
 
-          <p className="mt-4 text-xs text-center text-gray-500">
-            Rapport valide 30 jours. Paiement sécurisé par Stripe.
-          </p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-3">
+              <h1 className="text-2xl md:text-3xl font-bold text-white">{contractor.nom}</h1>
+              <div className="flex flex-wrap gap-2 items-center text-sm text-slate-400">
+                <span className="font-medium text-slate-300">RBQ {contractor.licence_rbq || 'N/A'}</span>
+                {contractor.neq && <><span className="opacity-30">|</span><span>NEQ {contractor.neq}</span></>}
+                {contractor.ville && <><span className="opacity-30">|</span><span>{contractor.ville}</span></>}
+              </div>
+              <Badge variant={contractor.statut_rbq === 'valide' ? 'success' : 'danger'} icon={contractor.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}>
+                Licence RBQ {contractor.statut_rbq?.toUpperCase() || 'INCONNUE'}
+              </Badge>
+            </div>
+
+            <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-32 ${getScoreBg(contractor.score)}`}>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
+              <div className={`text-4xl font-black ${getScoreColor(contractor.score)}`}>
+                {contractor.score ?? '?'}
+              </div>
+              <div className="text-[10px] font-medium text-slate-500 mt-1">{contractor.score_label || 'Non évalué'}</div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Content */}
+      <section className="max-w-2xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-xl shadow-saas border border-slate-100 p-6">
+          {contractor.categories && contractor.categories.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Catégories RBQ</h2>
+              <div className="flex gap-2 flex-wrap">
+                {contractor.categories.map((cat, i) => (
+                  <span key={i} className="px-3 py-1.5 text-xs bg-slate-50 text-slate-600 border border-slate-100 rounded-lg font-medium">
+                    {cat}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Link
+            href={`/rapport/${contractor.id}`}
+            className="block w-full text-center py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-lg hover:brightness-110 transition-all cursor-pointer"
+          >
+            Voir le rapport complet
+          </Link>
+        </div>
+      </section>
     </main>
   )
 }

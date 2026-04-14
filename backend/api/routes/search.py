@@ -91,6 +91,7 @@ def contractor_preview(c: Contractor) -> dict:
         "licence_rbq": c.licence_rbq,
         "neq": c.neq,
         "statut_rbq": c.statut_rbq,
+        "statut_req": c.statut_req,
         "categories": c.categories_rbq[:3] if c.categories_rbq else [],
         "score": c.score,
         "score_label": score_label(c.score)["label"] if c.score else None,

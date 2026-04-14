@@ -15,6 +15,7 @@ from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -75,7 +76,7 @@ async def scrape_opc_profile(neq: str, db: AsyncSession) -> dict:
         data["neq"] = neq
         data["fetched_at"] = datetime.utcnow().isoformat()
 
-        # Mettre en cache
+        # Mettre en cache (pas de commit ici — l'appelant committe)
         if cached:
             cached.data = data
             cached.fetched_at = datetime.utcnow()
@@ -87,7 +88,6 @@ async def scrape_opc_profile(neq: str, db: AsyncSession) -> dict:
             )
             db.add(cache_entry)
 
-        await db.commit()
         return data
 
     except Exception as e:
@@ -201,5 +201,14 @@ async def get_opc_plaintes_for_contractor(contractor_id: int, db: AsyncSession) 
         )
         db.add(existing)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Race condition : une requête concurrente a déjà inséré ce contractor_id
+        await db.rollback()
+        result = await db.execute(
+            select(OPCPlainte).where(OPCPlainte.contractor_id == contractor_id)
+        )
+        existing = result.scalar_one_or_none()
+
     return existing

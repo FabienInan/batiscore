@@ -1,5 +1,11 @@
 import re
 import unicodedata
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models import Contractor
 
 
 def normalize_name(name: str) -> str:
@@ -76,3 +82,39 @@ def normalize_licence_rbq(licence: str) -> str:
         return f"{digits[:4]}-{digits[4:8]}-{digits[8:]}"
 
     return licence
+
+
+class ContractorIndex:
+    """Index en mémoire des contractors pour lookups O(1) pendant l'ingestion.
+
+    Usage:
+        idx = await ContractorIndex.load(db)
+        contractor = idx.by_licence.get("5685-1470-01")
+    """
+
+    def __init__(self, by_licence: dict, by_neq: dict, by_nom: dict):
+        self.by_licence = by_licence
+        self.by_neq = by_neq
+        self.by_nom = by_nom
+
+    @classmethod
+    async def load(cls, db: AsyncSession) -> "ContractorIndex":
+        """Charge tous les contractors en mémoire."""
+        result = await db.execute(select(Contractor))
+        contractors = result.scalars().all()
+
+        by_licence = {}
+        by_neq = {}
+        by_nom = {}
+
+        for c in contractors:
+            if c.licence_rbq:
+                by_licence[c.licence_rbq] = c
+            if c.neq:
+                by_neq[c.neq] = c
+            if c.nom_normalized:
+                by_nom[c.nom_normalized] = c
+
+        print(f"Index: {len(contractors):,} contractors chargés "
+              f"({len(by_licence):,} par licence, {len(by_neq):,} par NEQ, {len(by_nom):,} par nom)")
+        return cls(by_licence, by_neq, by_nom)

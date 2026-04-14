@@ -25,6 +25,7 @@ class Contractor(Base):
     statut_req = Column(String(30), nullable=True)
     statut_rbq = Column(String(30), nullable=True)
     categories_rbq = Column(ARRAY(Text), nullable=True)
+    noms_secondaires = Column(ARRAY(Text), nullable=True)
     score = Column(Integer, nullable=True)
     score_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -46,6 +47,7 @@ class RBQEvent(Base):
     montant = Column(Numeric(12, 2), nullable=True)
     description = Column(Text, nullable=True)
     source = Column(String(20), default="rbq")
+    case_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     contractor = relationship("Contractor", back_populates="events")
@@ -76,6 +78,7 @@ class Litige(Base):
     issue = Column(String(50), nullable=True)
     montant = Column(Numeric(12, 2), nullable=True)
     url_decision = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     contractor = relationship("Contractor", back_populates="litiges")

@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: rgb(37 99 235 / 0.15);
+    color: #1e293b;
+  }
+
+  /* Respect reduced motion preference globally */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Consistent focus ring for keyboard navigation */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  /* Subtle dot grid background pattern */
+  .bg-dot-grid {
+    background-image: radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Light dot grid for light sections */
+  .bg-dot-grid-light {
+    background-image: radial-gradient(rgb(0 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
