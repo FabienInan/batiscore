@@ -1,11 +1,10 @@
 """
 Ingestion du Registre des entreprises du Québec (REQ).
 
-Sources (par ordre de priorité):
-1. Fichier local : backend/data/req.zip  (télécharger manuellement)
-   curl -L -o backend/data/req.zip "https://web.archive.org/web/20250816182804if_/https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
-2. Wayback Machine (snapshot 2025-08-16, ~245 Mo)
-3. URL directe Registraire (403 Forbidden en 2026)
+Fichier local requis : backend/data/req.zip
+Télécharger avec :
+  wget -O backend/data/req.zip \
+    "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
 
 Format: ZIP contenant plusieurs fichiers CSV
 Jointure: NEQ (clé avec RBQ)
@@ -14,11 +13,9 @@ import io
 import zipfile
 from pathlib import Path
 
-import httpx
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import settings
 from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor
 
@@ -48,26 +45,6 @@ async def ingest_req(db: AsyncSession) -> int:
     print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
     return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
 
-
-async def _download_and_ingest(url: str, db: AsyncSession) -> int:
-    """Télécharge et ingère le ZIP REQ depuis une URL."""
-    print(f"REQ: Téléchargement de {url[:80]}...")
-    async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
-        resp = await client.get(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
-        )
-    if resp.status_code != 200:
-        raise Exception(f"HTTP {resp.status_code}")
-
-    print(f"REQ: Téléchargé {len(resp.content) / 1024 / 1024:.1f} Mo")
-
-    # Sauvegarder localement pour les prochaines fois
-    LOCAL_REQ_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LOCAL_REQ_PATH.write_bytes(resp.content)
-    print(f"REQ: Sauvegardé dans {LOCAL_REQ_PATH}")
-
-    return await _parse_zip(resp.content, db)
 
 
 async def ingest_req_from_file(filepath: str, db: AsyncSession) -> int:
