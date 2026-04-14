@@ -24,10 +24,9 @@ from models import Contractor
 
 LOCAL_REQ_PATH = Path(__file__).parent.parent.parent / "data" / "req.zip"
 
-REQ_WAYBACK_URL = (
-    "https://web.archive.org/web/20250816182804if_/"
-    "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/"
-    "GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
+REQ_DOWNLOAD_URL = (
+    "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises"
+    "/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
 )
 
 
@@ -37,13 +36,13 @@ async def ingest_req(db: AsyncSession) -> int:
 
     Télécharger manuellement avant de lancer l'ingestion :
         wget -O /var/www/batiscore/backend/data/req.zip \\
-          "https://web.archive.org/web/20250816182804if_/https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx"
+          "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
     """
     if not LOCAL_REQ_PATH.exists():
         print("REQ: Fichier local introuvable.")
         print(f"REQ: Téléchargez-le manuellement avec :")
         print(f'  wget -O {LOCAL_REQ_PATH} \\')
-        print(f'    "{REQ_WAYBACK_URL}"')
+        print(f'    "{REQ_DOWNLOAD_URL}"')
         return 0
 
     print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
