@@ -26,7 +26,8 @@ app = FastAPI(
 # CORS pour le frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002","https://batiscore.ca",
+        "https://www.batiscore.ca",],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
