@@ -17,8 +17,8 @@ Fichiers locaux (optionnel, pris en priorité sur le téléchargement):
     backend/data/rbq.json   → curl -L -o backend/data/rbq.json "<URL_WAYBACK_RBQ>"
     backend/data/req.zip    → curl -L -o backend/data/req.zip "<URL_WAYBACK_REQ>"
     backend/data/seao.json  → téléchargement manuel requis (pas de source automatique)
-    data/reclamations-en-cours.pdf → PDF RBQ réclamations (manuel)
-    data/tableau-indemnites-versees.pdf → PDF RBQ indemnités (manuel)
+    backend/data/reclamations-en-cours.pdf → PDF RBQ réclamations (manuel)
+    backend/data/tableau-indemnites-versees.pdf → PDF RBQ indemnités (manuel)
 """
 
 import asyncio

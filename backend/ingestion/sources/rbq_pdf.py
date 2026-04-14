@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import Contractor, RBQEvent
 from ingestion.transforms.normalize import normalize_licence_rbq, ContractorIndex
 
-DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
 PDF_RECLAMATIONS = DATA_DIR / "reclamations-en-cours.pdf"
 PDF_INDEMNITES   = DATA_DIR / "tableau-indemnites-versees.pdf"
 
