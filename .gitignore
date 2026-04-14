@@ -59,6 +59,10 @@ backend/data/seao.json
 backend/data/*.pdf
 data/*.pdf
 
+# JSON data files
+data/*.json
+backend/data/*.json
+
 # =============================================================================
 # BASE DE DONNÉES
 # =============================================================================
