@@ -28,7 +28,9 @@ from models import Litige, RBQEvent
 CANLII_BASE = "https://api.canlii.org/v1"
 QCRBQ_DB = "qcrbq"
 TRIBUNAL = "Bureau des régisseurs de la RBQ"
-RATE_DELAY = 0.6  # secondes entre requêtes (limit: 2 req/s, ~400 calls max/ingest)
+RATE_DELAY = 1.0  # secondes entre requêtes (limit: 2 req/s, marge confortable)
+MAX_RETRIES = 3
+BACKOFF_BASE = 5  # secondes, multiplié par 2^tentative
 
 
 class RateLimitExceeded(Exception):
@@ -90,13 +92,27 @@ def _detect_type(keywords: str, title: str) -> str:
 # API calls
 # ---------------------------------------------------------------------------
 
+async def _request_with_retry(client: httpx.AsyncClient, url: str, params: dict, label: str) -> httpx.Response:
+    """Effectue une requête HTTP avec retry et backoff exponentiel sur 429."""
+    for attempt in range(MAX_RETRIES + 1):
+        resp = await client.get(url, params=params)
+        if resp.status_code != 429:
+            return resp
+        if attempt < MAX_RETRIES:
+            wait = BACKOFF_BASE * (2 ** attempt)
+            print(f"CanLII: 429 sur {label} — retry {attempt + 1}/{MAX_RETRIES} dans {wait}s...")
+            await asyncio.sleep(wait)
+        else:
+            raise RateLimitExceeded(f"Rate limit (429) sur {label} après {MAX_RETRIES} retries")
+
+
 async def _browse_page(client: httpx.AsyncClient, offset: int, result_count: int = 1000) -> list[dict]:
-    resp = await client.get(
+    resp = await _request_with_retry(
+        client,
         f"{CANLII_BASE}/caseBrowse/fr/{QCRBQ_DB}/",
-        params={"api_key": settings.canlii_api_key, "offset": offset, "resultCount": result_count},
+        {"api_key": settings.canlii_api_key, "offset": offset, "resultCount": result_count},
+        f"browse offset={offset}",
     )
-    if resp.status_code == 429:
-        raise RateLimitExceeded(f"Rate limit (429) à offset={offset}")
     if resp.status_code != 200:
         print(f"CanLII: HTTP {resp.status_code} (offset={offset})")
         return []
@@ -104,12 +120,12 @@ async def _browse_page(client: httpx.AsyncClient, offset: int, result_count: int
 
 
 async def _get_metadata(client: httpx.AsyncClient, case_id: str) -> Optional[dict]:
-    resp = await client.get(
+    resp = await _request_with_retry(
+        client,
         f"{CANLII_BASE}/caseBrowse/fr/{QCRBQ_DB}/{case_id}/",
-        params={"api_key": settings.canlii_api_key},
+        {"api_key": settings.canlii_api_key},
+        f"metadata {case_id}",
     )
-    if resp.status_code == 429:
-        raise RateLimitExceeded(f"Rate limit (429) sur metadata {case_id}")
     if resp.status_code != 200:
         return None
     return resp.json()
@@ -161,7 +177,8 @@ async def ingest_canlii_rbq(db: AsyncSession, max_cases: int = 5000) -> int:
             try:
                 cases = await _browse_page(client, offset, batch_size)
             except RateLimitExceeded as e:
-                print(f"⚠  CanLII: {e} — relancez plus tard")
+                print(f"⚠  CanLII: {e} — reprise possible, les données déjà commitées sont conservées")
+                stop = True
                 break
 
             await asyncio.sleep(RATE_DELAY)
@@ -193,7 +210,7 @@ async def ingest_canlii_rbq(db: AsyncSession, max_cases: int = 5000) -> int:
                 try:
                     metadata = await _get_metadata(client, case_id)
                 except RateLimitExceeded as e:
-                    print(f"⚠  CanLII: {e} — relancez plus tard")
+                    print(f"⚠  CanLII: {e} — reprise possible, les données déjà commitées sont conservées")
                     stop = True
                     break
 
