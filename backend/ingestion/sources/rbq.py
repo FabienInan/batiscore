@@ -158,9 +158,17 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
             contractor = idx.by_licence.get(licence)
 
             if not contractor:
-                contractor = Contractor(licence_rbq=licence)
-                db.add(contractor)
-                idx.by_licence[licence] = contractor
+                # Vérifier si le NEQ existe déjà (compagnie avec plusieurs licences)
+                neq_raw = record.get("NEQ")
+                neq_check = normalize_neq(str(neq_raw)) if neq_raw else None
+                if neq_check and neq_check in idx.by_neq:
+                    # Même compagnie sous une autre licence — on met à jour sans créer
+                    contractor = idx.by_neq[neq_check]
+                    idx.by_licence[licence] = contractor
+                else:
+                    contractor = Contractor(licence_rbq=licence)
+                    db.add(contractor)
+                    idx.by_licence[licence] = contractor
 
             contractor.nom_legal = nom[:255]
             contractor.nom_normalized = normalize_name(nom)
@@ -220,14 +228,27 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
             ingested += 1
 
             if ingested % 5000 == 0:
-                await db.commit()
-                print(f"RBQ: {ingested:,} enregistrements traités...")
+                try:
+                    await db.commit()
+                    print(f"RBQ: {ingested:,} enregistrements traités...")
+                except Exception as commit_err:
+                    print(f"RBQ: Erreur commit intermédiaire (rollback): {commit_err}")
+                    await db.rollback()
 
         except Exception as e:
             print(f"RBQ: Erreur enregistrement (ignoré): {e}")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
             skipped += 1
             continue
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        print(f"RBQ: Erreur commit final (rollback): {e}")
+        await db.rollback()
+
     print(f"RBQ: {ingested:,} entrepreneurs ingérés, {skipped} ignorés")
     return ingested
