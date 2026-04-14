@@ -52,16 +52,17 @@ backend/data/rbq_*.json
 backend/data/req.zip
 backend/data/req/
 
-# SEAO
-backend/data/seao.json
+# SEAO (committé intentionnellement — 22 Mo)
+# backend/data/seao.json
 
-# PDFs sources
-backend/data/*.pdf
-data/*.pdf
+# PDFs sources (committés intentionnellement)
+# backend/data/*.pdf
+# data/*.pdf
 
 # JSON data files
 data/*.json
 backend/data/*.json
+!backend/data/seao.json
 
 # =============================================================================
 # BASE DE DONNÉES
