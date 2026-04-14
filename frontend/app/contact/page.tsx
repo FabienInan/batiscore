@@ -32,11 +32,11 @@ export default function ContactPage() {
               une erreur, contactez-nous à :
             </p>
             <a
-              href="mailto:cont@racine-numerique.ca"
+              href="mailto:contac@racine-numerique.ca"
               className="inline-flex items-center gap-2 text-orange-600 font-medium hover:text-orange-500 transition-colors"
             >
               <Mail size={14} aria-hidden="true" />
-              cont@racine-numerique.ca
+              contac@racine-numerique.ca
             </a>
           </div>
 
