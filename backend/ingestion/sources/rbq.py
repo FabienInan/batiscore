@@ -133,6 +133,7 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
 
     statut_map = {
         "active": "valide",
+        "réouverte": "réouverte",
         "suspendue": "suspendu",
         "annulée": "annulé",
         "révoquée": "révoqué",

@@ -136,6 +136,18 @@ export default function TermesConditionsPage() {
             </p>
           </section>
 
+          <section>
+            <h2 className="text-xl font-bold text-slate-800 mb-3">11. Procédure de contestation</h2>
+            <p>
+              Tout entrepreneur figurant sur la plateforme peut contester les informations le concernant
+              en suivant la procédure décrite à la page{' '}
+              <a href="/contester" className="text-orange-600 underline">Contester les informations</a>.
+              Batiscore s&apos;engage à accuser réception de la demande dans les 5 jours ouvrables et à
+              traiter la demande dans les 30 jours ouvrables suivant la réception. Si les données sont
+              confirmées comme inexactes, elles seront corrigées ou retirées dans les 10 jours ouvrables.
+            </p>
+          </section>
+
         </div>
       </div>
     </main>

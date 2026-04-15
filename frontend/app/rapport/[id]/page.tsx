@@ -180,6 +180,86 @@ export default function ReportPage() {
 
   const c = report.contractor
 
+  const SOURCE_LABELS: Record<string, string> = {
+    rbq: 'RBQ',
+    rbq_decisions: 'RBQ',
+    rbq_pdf_reclamations: 'RBQ',
+    rbq_pdf_indemnites: 'RBQ',
+    cnesst: 'CNESST',
+    canlii: 'CanLII',
+  }
+
+  const RBQ_LABELS: Record<string, string> = {
+    '1.1.1': 'Bâtiments résidentiels neufs (classe I)',
+    '1.1.2': 'Bâtiments résidentiels neufs (classe II)',
+    '1.2': 'Petits bâtiments',
+    '1.3': 'Bâtiments de tout genre',
+    '1.4': 'Routes et canalisation',
+    '1.4G': 'Routes et canalisation (gén.)',
+    '1.4S': 'Routes et canalisation (spéc.)',
+    '1.5': 'Structures d\'ouvrages de génie civil',
+    '1.5G': 'Structures de génie civil (gén.)',
+    '1.5S': 'Structures de génie civil (spéc.)',
+    '1.6': 'Ouvrages de génie civil immergés',
+    '1.6G': 'Génie civil immergé (gén.)',
+    '1.6S': 'Génie civil immergé (spéc.)',
+    '1.7': 'Télécom et énergie électrique',
+    '1.7G': 'Télécom et énergie (gén.)',
+    '1.7S': 'Télécom et énergie (spéc.)',
+    '1.8': 'Équipements pétroliers',
+    '1.9': 'Mécanique du bâtiment',
+    '1.10': 'Remontées mécaniques',
+    '2.1': 'Puits forés',
+    '2.2': 'Captage d\'eau non forés',
+    '2.3': 'Pompage des eaux souterraines',
+    '2.4': 'Assainissement autonome',
+    '2.5': 'Excavation et terrassement',
+    '2.6': 'Pieux et fondations spéciales',
+    '2.7': 'Travaux d\'emplacement',
+    '2.8': 'Sautage',
+    '3.1': 'Structures de béton',
+    '3.2': 'Petits ouvrages de béton',
+    '4.1': 'Structures de maçonnerie',
+    '4.2': 'Maçonnerie non structurale',
+    '5.1': 'Structures métalliques',
+    '5.2': 'Ouvrages métalliques',
+    '6.1': 'Charpentes de bois',
+    '6.2': 'Travaux de bois et plastique',
+    '7': 'Isolation, étanchéité, couvertures',
+    '8': 'Portes et fenêtres',
+    '9': 'Travaux de finition',
+    '10': 'Chauffage combustible solide',
+    '11.1': 'Tuyauterie industrielle',
+    '11.2': 'Équipements et produits spéciaux',
+    '12': 'Armoires et comptoirs usinés',
+    '13.1': 'Protection contre la foudre',
+    '13.2': 'Systèmes d\'alarme incendie',
+    '13.3': 'Extinction d\'incendie',
+    '13.4': 'Extinction incendie localisée',
+    '13.5': 'Installations spéciales',
+    '14.1': 'Ascenseurs et monte-charges',
+    '14.2': 'Appareils élévateurs (handicapés)',
+    '14.3': 'Autres appareils élévateurs',
+    '15.1': 'Chauffage à air pulsé',
+    '15.2': 'Brûleurs gaz naturel',
+    '15.3': 'Brûleurs à l\'huile',
+    '15.4': 'Chauffage hydronique',
+    '15.5': 'Plomberie',
+    '15.6': 'Propane',
+    '15.7': 'Ventilation résidentielle',
+    '15.8': 'Ventilation',
+    '15.9': 'Petite réfrigération',
+    '15.10': 'Réfrigération',
+    '16': 'Électricité',
+    '17.1': 'Instrumentation et contrôle',
+    '17.2': 'Intercommunication et surveillance',
+    'ADM': 'Administration',
+    'GPC': 'Gaz de pétrole comprimé',
+    'GPCCOP': 'Gaz de pétrole comprimé (copropriété)',
+    'SEC': 'Sécurité',
+    'SECCOP': 'Sécurité (copropriété)',
+  }
+
   return (
     <main className="min-h-screen">
       {/* Dark hero header */}
@@ -209,9 +289,17 @@ export default function ReportPage() {
                 <span>{c.ville || 'Lieu non spécifié'}</span>
               </div>
               <div className="flex flex-wrap gap-3 pt-2">
-                <Badge variant={c.statut_rbq === 'valide' ? 'success' : 'danger'} icon={c.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}>
-                  Licence RBQ {c.statut_rbq?.toUpperCase() || 'INCONNUE'}
+                <Badge
+                  variant={c.statut_rbq === 'valide' ? 'success' : c.statut_rbq === 'réouverte' ? 'warning' : 'danger'}
+                  icon={c.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}
+                >
+                  Licence RBQ {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
                 </Badge>
+                {c.statut_rbq === 'réouverte' && (
+                  <Badge variant="warning" icon={AlertTriangle}>
+                    Anciennement fermée
+                  </Badge>
+                )}
                 {(c.statut_req === 'radié' || c.statut_req === 'faillite') && (
                   <Badge variant="danger" className="bg-red-600 text-white border-red-500" icon={AlertTriangle}>
                     REQ {c.statut_req === 'faillite' ? 'EN FAILLITE' : 'RADIÉ'}
@@ -222,7 +310,7 @@ export default function ReportPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 self-start">
               <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] ${getScoreBg(c.score)}`}>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Niveau de confiance</div>
                 <div className={`text-4xl font-black ${getScoreColor(c.score)}`}>
                   {c.score ?? '?'}
                 </div>
@@ -251,12 +339,27 @@ export default function ReportPage() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Legal disclaimer */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 print:hidden">
+          <div className="flex items-start gap-3">
+            <TriangleAlert size={18} className="shrink-0 mt-0.5 text-amber-600" />
+            <p className="text-sm text-amber-800 leading-relaxed">
+              Ces informations proviennent de sources publiques et sont présentées à titre informatif.
+              Elles ne constituent pas une recommandation. Vérifiez auprès des sources officielles avant toute décision.
+            </p>
+          </div>
+        </div>
         {/* Score Breakdown */}
         {c.score_breakdown && c.score_breakdown.length > 0 && (
           <div className="bg-white rounded-xl shadow-saas border border-slate-100 p-6 mb-6">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
-              <TrendingUp size={14} />
-              Analyse du score
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <TrendingUp size={14} />
+                Analyse du niveau de confiance
+              </div>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                Calcul Batiscore
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
               {c.score_breakdown.map((f, i) => (
@@ -273,64 +376,90 @@ export default function ReportPage() {
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-slate-400 mt-3 leading-relaxed">
+              Ce niveau de confiance est calculé automatiquement à partir des données publiques. Il ne constitue pas une évaluation professionnelle ni une certification.
+            </p>
           </div>
         )}
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="p-6 space-y-6">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Award size={20} className="text-orange-500" />
-              Informations Générales
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={16} /></div>
-                <div>
-                  <div className="text-xs text-slate-400 font-medium uppercase">Adresse</div>
-                  <div className="text-sm font-medium text-slate-700">{c.adresse || 'Non disponible'}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Phone size={16} /></div>
-                <div>
-                  <div className="text-xs text-slate-400 font-medium uppercase">Téléphone</div>
-                  <div className="text-sm font-medium text-slate-700">{c.telephone || 'Non disponible'}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Calendar size={16} /></div>
-                <div>
-                  <div className="text-xs text-slate-400 font-medium uppercase">Date de fondation</div>
-                  <div className="text-sm font-medium text-slate-700">{c.date_fondation || 'Non disponible'}</div>
-                </div>
-              </div>
+        {/* Informations Générales + Spécialités RBQ */}
+        <div className="space-y-8 mb-8">
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Award size={20} className="text-orange-500" />
+                Informations Générales
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                  Source : RBQ / REQ
+                </span>
+              </h2>
             </div>
-          </Card>
+            <Card className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Adresse</div>
+                    <div className="text-sm font-medium text-slate-700">{c.adresse || 'Non disponible'}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Phone size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Téléphone</div>
+                    <div className="text-sm font-medium text-slate-700">{c.telephone || 'Non disponible'}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Calendar size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Date de fondation</div>
+                    <div className="text-sm font-medium text-slate-700">{c.date_fondation || 'Non disponible'}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </section>
 
-          <Card className="p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-orange-500" />
-              Spécialités RBQ
-            </h2>
-            <div className="flex flex-wrap gap-2">
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck size={20} className="text-orange-500" />
+                Spécialités RBQ
+              </h2>
+            </div>
+            <Card className="p-6">
               {c.categories_rbq && c.categories_rbq.length > 0 ? (() => {
                 const groups: Record<string, string[]> = {}
                 const cats = c.categories_rbq
-                for (let i = 0; i + 1 < cats.length; i += 2) {
-                  const type = cats[i], code = cats[i + 1]
-                  if (!groups[type]) groups[type] = []
-                  groups[type].push(code)
+                let currentType = 'Generale'
+                for (const item of cats) {
+                  if (item === 'Generale' || item === 'Specialisee') {
+                    currentType = item
+                  } else {
+                    if (!groups[currentType]) groups[currentType] = []
+                    groups[currentType].push(item)
+                  }
                 }
                 return Object.entries(groups).map(([type, codes]) => (
-                  <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
-                    <span className="font-bold text-slate-700">{type === 'Generale' ? 'Gén.' : type === 'Specialisee' ? 'Spéc.' : type}</span>
-                    <span className="text-slate-500">{codes.join(', ')}</span>
+                  <div key={type} className="mb-3 last:mb-0">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      {type === 'Generale' ? 'Licence générale' : type === 'Specialisee' ? 'Licence spécialisée' : type}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {codes.map((code) => (
+                        <span key={code} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-xs" title={RBQ_LABELS[code] ?? code}>
+                          <span className="font-semibold text-slate-700">{code}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-500">{RBQ_LABELS[code] ?? code}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ))
               })() : <span className="text-slate-400 text-sm italic">Aucune catégorie enregistrée</span>}
-            </div>
-          </Card>
+            </Card>
+          </section>
         </div>
 
         {/* Events / Litiges / Contrats */}
@@ -364,7 +493,12 @@ export default function ReportPage() {
                     <div key={i} className="group relative bg-white p-4 rounded-xl border border-slate-100 shadow-saas hover:border-orange-300/50 transition-all">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
-                          <Badge variant={meta.color} icon={meta.color === 'danger' ? AlertTriangle : ShieldCheck}>{meta.label}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={meta.color} icon={meta.color === 'danger' ? AlertTriangle : ShieldCheck}>{meta.label}</Badge>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                              Source : {SOURCE_LABELS[event.source ?? ''] ?? event.source ?? 'RBQ'}
+                            </span>
+                          </div>
                           {descText && <p className="text-sm text-slate-600 leading-relaxed">{descText}</p>}
                           {pdfUrl && (
                             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-600 font-semibold hover:underline cursor-pointer">
@@ -391,6 +525,9 @@ export default function ReportPage() {
                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                   <Building2 size={20} className="text-orange-500" />
                   Décisions judiciaires
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                    Source : CanLII
+                  </span>
                 </h2>
                 <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-bold rounded-md">{report.litiges.length}</span>
               </div>
@@ -436,7 +573,10 @@ export default function ReportPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                   <TrendingUp size={20} className="text-emerald-500" />
-                  Contrats Publics SEAO
+                  Contrats Publics
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                    Source : SEAO
+                  </span>
                 </h2>
                 <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-md border border-emerald-100">Signaux Positifs</span>
               </div>
@@ -611,9 +751,18 @@ export default function ReportPage() {
           </section>
         )}
 
+        <div className="mt-8 text-center print:hidden">
+          <Link
+            href="/contester"
+            className="text-sm text-slate-400 hover:text-orange-500 transition-colors underline underline-offset-2"
+          >
+            Vous êtes cet entrepreneur ? Contester les informations
+          </Link>
+        </div>
+
         <div className="mt-12 pt-8 border-t border-slate-100 text-center text-sm text-slate-400 print:hidden">
           <p>Rapport généré le {new Date().toLocaleDateString('fr-CA')}</p>
-          <p className="mt-1">Données certifiées issues du registre RBQ, REQ, OPC, CanLII et SEAO.</p>
+          <p className="mt-1">Données issues de sources publiques : RBQ, REQ, OPC, CanLII et SEAO.</p>
         </div>
       </div>
     </main>

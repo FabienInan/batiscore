@@ -54,6 +54,18 @@ async def get_report(
     )
     events = events_result.scalars().all()
 
+    # Extraire les valeurs des événements AVANT le scoring (lazy-loading async)
+    events_data = [
+        SimpleNamespace(
+            event_type=e.event_type,
+            event_date=e.event_date,
+            montant=e.montant,
+            description=e.description,
+            source=e.source,
+        )
+        for e in events
+    ]
+
     # Récupérer les plaintes OPC (scraping on-demand avec cache 24h)
     plaintes_obj = None
     try:
@@ -78,6 +90,21 @@ async def get_report(
         await db.rollback()
         litiges = []
 
+    # Extraire les valeurs des litiges AVANT le scoring (lazy-loading async)
+    litiges_data = [
+        SimpleNamespace(
+            tribunal=l.tribunal,
+            date_decision=l.date_decision,
+            type_litige=l.type_litige,
+            issue=l.issue,
+            montant=l.montant,
+            url_decision=l.url_decision,
+            description=l.description,
+            source=l.source,
+        )
+        for l in litiges
+    ]
+
     # Récupérer les avis Google (on-demand avec cache 7j)
     google_reviews = None
     try:
@@ -93,8 +120,8 @@ async def get_report(
     contrats = contrats_result.scalars().all()
 
     # Calculer le score à la volée et le persister si absent ou obsolète
-    score = calculate_score(contractor_data, list(events), plaintes, list(litiges), len(contrats))
-    score_breakdown = calculate_score_breakdown(contractor_data, list(events), plaintes, list(litiges), len(contrats))
+    score = calculate_score(contractor_data, list(events_data), plaintes, list(litiges_data), len(contrats))
+    score_breakdown = calculate_score_breakdown(contractor_data, list(events_data), plaintes, list(litiges_data), len(contrats))
 
     if contractor_data.score != score:
         # Re-fetch le contractor car il a pu être expiré après rollback
@@ -132,7 +159,7 @@ async def get_report(
                 "description": e.description,
                 "source": e.source,
             }
-            for e in events
+            for e in events_data
         ],
         "litiges": [
             {
@@ -145,7 +172,7 @@ async def get_report(
                 "description": l.description,
                 "source": l.source,
             }
-            for l in litiges
+            for l in litiges_data
         ],
         "contrats_publics": [
             {

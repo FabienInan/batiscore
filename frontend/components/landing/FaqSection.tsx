@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react'
 const faqs = [
   {
     question: 'Est-ce que la recherche est gratuite ?',
-    answer: 'Oui, la recherche d\'un entrepreneur est 100% gratuite. Vous pouvez vérifier le nom, le numéro RBQ, le statut et le score de fiabilité sans payer. Le rapport détaillé est disponible à partir de 7,99$.',
+    answer: 'Oui, la recherche d\'un entrepreneur est 100% gratuite. Vous pouvez vérifier le nom, le numéro RBQ, le statut et le score de fiabilité sans payer.',
   },
   {
     question: 'Quelles données vérifiez-vous ?',

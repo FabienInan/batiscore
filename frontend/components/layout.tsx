@@ -131,6 +131,8 @@ export const Footer = () => {
               <li><Link href="/contact" className="hover:text-slate-300 transition-colors cursor-pointer">Contact</Link></li>
               <li><Link href="/verifier-entrepreneur-renovation" className="hover:text-slate-300 transition-colors cursor-pointer">Guide de vérification</Link></li>
               <li><Link href="/termes-et-conditions" className="hover:text-slate-300 transition-colors cursor-pointer">Termes et conditions</Link></li>
+              <li><Link href="/politique-de-confidentialite" className="hover:text-slate-300 transition-colors cursor-pointer">Politique de confidentialité</Link></li>
+              <li><Link href="/contester" className="hover:text-slate-300 transition-colors cursor-pointer">Contester les informations</Link></li>
             </ul>
           </div>
         </div>
@@ -141,7 +143,8 @@ export const Footer = () => {
           </p>
           <p className="text-xs text-slate-700">
             <Link href="/termes-et-conditions" className="hover:text-slate-500 transition-colors">Termes et conditions</Link>
-            {' · '}Données publiques — aucune information privée utilisée
+            {' · '}<Link href="/politique-de-confidentialite" className="hover:text-slate-500 transition-colors">Politique de confidentialité</Link>
+            {' · '}Données issues de sources publiques
           </p>
         </div>
       </div>

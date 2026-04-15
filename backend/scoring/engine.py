@@ -13,6 +13,8 @@ def calculate_score_breakdown(contractor: Contractor, events: List[RBQEvent], pl
 
     if contractor.statut_rbq in ("suspendu", "annulé", "révoqué"):
         factors.append({"label": f"Licence RBQ {contractor.statut_rbq}", "points": -50, "type": "negative"})
+    elif contractor.statut_rbq == "réouverte":
+        factors.append({"label": "Licence RBQ réouverte", "points": -10, "type": "warning"})
 
     if contractor.statut_req in ("radié", "en_liquidation", "faillite"):
         factors.append({"label": f"Entreprise {contractor.statut_req} au REQ", "points": -40, "type": "negative"})
@@ -114,6 +116,8 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
     # Licence RBQ suspendue/révoquée
     if contractor.statut_rbq in ("suspendu", "annulé", "révoqué"):
         score -= 50
+    elif contractor.statut_rbq == "réouverte":
+        score -= 10
 
     # Entreprise radiée ou en faillite
     if contractor.statut_req in ("radié", "en_liquidation", "faillite"):

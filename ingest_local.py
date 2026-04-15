@@ -88,6 +88,7 @@ def main():
 
             statut_map = {
                 "active": "valide",
+                "réouverte": "réouverte",
                 "suspendue": "suspendu",
                 "annulée": "annulé",
                 "révoquée": "révoqué",

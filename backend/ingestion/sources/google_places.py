@@ -72,6 +72,7 @@ async def search_place(
         queries.append(f"{short} {ville}")
 
     for query in queries:
+        print(f"Google: searching '{query}'")
         resp = await client.post(
             f"{GOOGLE_PLACES_BASE}/places:searchText",
             headers={
@@ -82,10 +83,13 @@ async def search_place(
             json={"textQuery": query},
         )
         if resp.status_code != 200:
+            print(f"Google: HTTP {resp.status_code}")
             continue
         places = resp.json().get("places", [])
         if places:
+            print(f"Google: found place_id={places[0].get('id')}")
             return places[0].get("id")
+        print(f"Google: no results")
     return None
 
 

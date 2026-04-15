@@ -102,17 +102,26 @@ export default function EntrepreneurPage() {
                 {contractor.neq && <><span className="opacity-30">|</span><span>NEQ {contractor.neq}</span></>}
                 {contractor.ville && <><span className="opacity-30">|</span><span>{contractor.ville}</span></>}
               </div>
-              <Badge variant={contractor.statut_rbq === 'valide' ? 'success' : 'danger'} icon={contractor.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}>
-                Licence RBQ {contractor.statut_rbq?.toUpperCase() || 'INCONNUE'}
+              <Badge
+                variant={contractor.statut_rbq === 'valide' ? 'success' : contractor.statut_rbq === 'réouverte' ? 'warning' : 'danger'}
+                icon={contractor.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}
+              >
+                Licence RBQ {contractor.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (contractor.statut_rbq?.toUpperCase() || 'INCONNUE')}
               </Badge>
+              {contractor.statut_rbq === 'réouverte' && (
+                <Badge variant="warning" icon={AlertTriangle}>
+                  Anciennement fermée
+                </Badge>
+              )}
             </div>
 
             <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-32 ${getScoreBg(contractor.score)}`}>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Confiance</div>
               <div className={`text-4xl font-black ${getScoreColor(contractor.score)}`}>
                 {contractor.score ?? '?'}
               </div>
               <div className="text-[10px] font-medium text-slate-500 mt-1">{contractor.score_label || 'Non évalué'}</div>
+              <div className="text-[9px] text-slate-500 mt-0.5 leading-tight">Estimation algorithmique</div>
             </div>
           </div>
         </div>
@@ -122,16 +131,75 @@ export default function EntrepreneurPage() {
       <section className="max-w-2xl mx-auto px-4 py-8">
         <div className="bg-white rounded-xl shadow-saas border border-slate-100 p-6">
           {contractor.categories && contractor.categories.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Catégories RBQ</h2>
-              <div className="flex gap-2 flex-wrap">
-                {contractor.categories.map((cat, i) => (
-                  <span key={i} className="px-3 py-1.5 text-xs bg-slate-50 text-slate-600 border border-slate-100 rounded-lg font-medium">
-                    {cat}
-                  </span>
+            (() => {
+            const groups: Record<string, string[]> = {}
+            let currentType = 'Generale'
+            for (const item of contractor.categories) {
+              if (item === 'Generale' || item === 'Specialisee') {
+                currentType = item
+              } else {
+                if (!groups[currentType]) groups[currentType] = []
+                groups[currentType].push(item)
+              }
+            }
+            const RBQ_LABELS: Record<string, string> = {
+              '1.1.1': 'Bâtiments résidentiels neufs (classe I)',
+              '1.1.2': 'Bâtiments résidentiels neufs (classe II)',
+              '1.2': 'Petits bâtiments',
+              '1.3': 'Bâtiments de tout genre',
+              '1.4': 'Routes et canalisation',
+              '1.5': 'Structures d\'ouvrages de génie civil',
+              '1.6': 'Ouvrages de génie civil immergés',
+              '1.7': 'Télécom et énergie électrique',
+              '1.8': 'Équipements pétroliers',
+              '1.9': 'Mécanique du bâtiment',
+              '1.10': 'Remontées mécaniques',
+              '2.1': 'Puits forés', '2.2': 'Captage d\'eau', '2.3': 'Pompage eaux souterraines',
+              '2.4': 'Assainissement autonome', '2.5': 'Excavation et terrassement',
+              '2.6': 'Pieux et fondations', '2.7': 'Travaux d\'emplacement', '2.8': 'Sautage',
+              '3.1': 'Structures de béton', '3.2': 'Petits ouvrages de béton',
+              '4.1': 'Structures de maçonnerie', '4.2': 'Maçonnerie non structurale',
+              '5.1': 'Structures métalliques', '5.2': 'Ouvrages métalliques',
+              '6.1': 'Charpentes de bois', '6.2': 'Travaux de bois et plastique',
+              '7': 'Isolation, étanchéité, couvertures', '8': 'Portes et fenêtres',
+              '9': 'Travaux de finition', '10': 'Chauffage combustible solide',
+              '11.1': 'Tuyauterie industrielle', '11.2': 'Équipements et produits spéciaux',
+              '12': 'Armoires et comptoirs', '13.1': 'Protection contre la foudre',
+              '13.2': 'Alarme incendie', '13.3': 'Extinction d\'incendie',
+              '13.4': 'Extinction localisée', '13.5': 'Installations spéciales',
+              '14.1': 'Ascenseurs et monte-charges', '14.2': 'Appareils élévateurs (handicapés)',
+              '14.3': 'Autres appareils élévateurs', '15.1': 'Chauffage à air pulsé',
+              '15.2': 'Brûleurs gaz naturel', '15.3': 'Brûleurs à l\'huile',
+              '15.4': 'Chauffage hydronique', '15.5': 'Plomberie', '15.6': 'Propane',
+              '15.7': 'Ventilation résidentielle', '15.8': 'Ventilation',
+              '15.9': 'Petite réfrigération', '15.10': 'Réfrigération',
+              '16': 'Électricité', '17.1': 'Instrumentation et contrôle',
+              '17.2': 'Intercommunication et surveillance',
+              'ADM': 'Administration', 'GPC': 'Gaz de pétrole comprimé',
+              'SEC': 'Sécurité',
+            }
+            return (
+              <div className="mb-6">
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Spécialités RBQ</h2>
+                {Object.entries(groups).map(([type, codes]) => (
+                  <div key={type} className="mb-3 last:mb-0">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      {type === 'Generale' ? 'Licence générale' : type === 'Specialisee' ? 'Licence spécialisée' : type}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {codes.map((code) => (
+                        <span key={code} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-xs" title={RBQ_LABELS[code] ?? code}>
+                          <span className="font-semibold text-slate-700">{code}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-500">{RBQ_LABELS[code] ?? code}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
+            )
+          })()
           )}
 
           <Link
@@ -140,6 +208,10 @@ export default function EntrepreneurPage() {
           >
             Voir le rapport complet
           </Link>
+
+          <p className="text-[10px] text-slate-400 text-center mt-4 leading-relaxed">
+            Données issues de sources publiques, présentées à titre informatif uniquement.
+          </p>
         </div>
       </section>
     </main>

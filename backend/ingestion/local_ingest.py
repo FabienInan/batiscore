@@ -115,6 +115,7 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
             statut = str(record.get("Statut de la licence", "")).lower()
             statut_map = {
                 "active": "valide",
+                "réouverte": "réouverte",
                 "suspendue": "suspendu",
                 "annulée": "annulé",
                 "révoquée": "révoqué",
