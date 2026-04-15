@@ -47,11 +47,19 @@ async def search_contractors(
         )
         contractors = result.scalars().all()
     else:
-        # Recherche par nom (fuzzy)
+        # Recherche par nom (fuzzy) — nom_legal ET noms commerciaux
+        nom_sim = func.similarity(Contractor.nom_normalized, q_normalized)
+        # Chercher aussi dans les noms commerciaux (noms_secondaires)
+        nom_sec_sim = func.similarity(
+            func.array_to_string(Contractor.noms_secondaires, ' '), q_normalized
+        )
+
         result = await db.execute(
             select(Contractor)
-            .where(func.similarity(Contractor.nom_normalized, q_normalized) > 0.3)
-            .order_by(func.similarity(Contractor.nom_normalized, q_normalized).desc())
+            .where(
+                (nom_sim > 0.3) | ((Contractor.noms_secondaires.isnot(None)) & (nom_sec_sim > 0.3))
+            )
+            .order_by(func.greatest(nom_sim, nom_sec_sim).desc())
             .limit(10)
         )
         contractors = result.scalars().all()
