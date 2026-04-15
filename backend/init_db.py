@@ -3,7 +3,7 @@
 import asyncio
 from sqlalchemy import text
 from database import engine, Base
-from models import Contractor, RBQEvent, OPCPlainte, Litige, SEAOContract, Report, OPCCache
+from models import Contractor, RBQEvent, OPCPlainte, Litige, SEAOContract, Report, OPCCache, GoogleReviewsCache
 
 
 async def init_db():

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import search, report, webhook
 from database import engine, Base
+import models  # assure que tous les modèles sont enregistrés avant create_all
 
 
 @asynccontextmanager
