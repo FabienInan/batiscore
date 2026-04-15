@@ -137,7 +137,10 @@ async def get_google_reviews_for_contractor(
 
     if cached and cached.fetched_at:
         age = (datetime.utcnow() - cached.fetched_at).days
-        if age < CACHE_TTL_DAYS:
+        # Cache vide (pas de match) : réessayer après 1 jour
+        # Cache avec données : valable 7 jours
+        ttl = 1 if cached.rating is None else CACHE_TTL_DAYS
+        if age < ttl:
             if cached.rating is not None:
                 return {"rating": cached.rating, "nb_avis": cached.nb_avis or 0}
             return None
