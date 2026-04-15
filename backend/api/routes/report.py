@@ -55,12 +55,20 @@ async def get_report(
     events = events_result.scalars().all()
 
     # Récupérer les plaintes OPC (scraping on-demand avec cache 24h)
+    plaintes_obj = None
     try:
-        plaintes = await get_opc_plaintes_for_contractor(contractor_id, db)
+        plaintes_obj = await get_opc_plaintes_for_contractor(contractor_id, db)
     except Exception as e:
         print(f"OPC: Échec silencieux pour contractor {contractor_id}: {e}")
         await db.rollback()
-        plaintes = None
+
+    # Extraire les valeurs AVANT tout rollback ultérieur (même pattern que contractor_data)
+    plaintes = None
+    if plaintes_obj:
+        plaintes = SimpleNamespace(
+            nb_plaintes=plaintes_obj.nb_plaintes,
+            mises_en_garde=plaintes_obj.mises_en_garde,
+        )
 
     # Récupérer les litiges CanLII (API on-demand)
     try:
