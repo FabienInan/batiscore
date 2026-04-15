@@ -53,21 +53,27 @@ def _short_name(nom: str) -> str:
 
 
 async def search_place(
-    client: httpx.AsyncClient, nom: str, ville: str
+    client: httpx.AsyncClient, nom: str, ville: str, neq: str | None = None
 ) -> Optional[str]:
     """
-    Recherche un lieu sur Google Places par nom + ville.
-    Essaie plusieurs variantes du nom, du plus spécifique au plus court.
+    Recherche un lieu sur Google Places par NEQ puis nom + ville.
+    Essaie plusieurs variantes, du NEQ (plus fiable) au nom court.
     Retourne le placeId du premier résultat, ou None.
     """
     clean = _clean_name(nom)
     short = _short_name(nom)
 
-    # Stratégies de recherche, de la plus spécifique à la plus large
+    # Stratégies de recherche, de la plus fiable à la plus large
     queries = []
+    # 1) NEQ — beaucoup d'entreprises ont leur NEQ dans leur fiche Google
+    if neq:
+        queries.append(f"NEQ {neq} {ville}".strip())
+    # 2) Nom nettoyé (sans suffixes juridiques)
     if clean != nom:
         queries.append(f"{clean} {ville}")
+    # 3) Nom légal complet
     queries.append(f"{nom} {ville}")
+    # 4) Nom court (sans préfixes descriptifs)
     if short and short != clean and short != nom:
         queries.append(f"{short} {ville}")
 
@@ -118,7 +124,7 @@ async def get_place_details(
 
 
 async def fetch_google_reviews(
-    nom: str, ville: str
+    nom: str, ville: str, neq: str | None = None
 ) -> Optional[dict]:
     """
     Orchestre la recherche + détails pour un entrepreneur.
@@ -128,7 +134,7 @@ async def fetch_google_reviews(
         return None
 
     async with httpx.AsyncClient(timeout=10) as client:
-        place_id = await search_place(client, nom, ville)
+        place_id = await search_place(client, nom, ville, neq=neq)
         if not place_id:
             return None
 
@@ -174,7 +180,9 @@ async def get_google_reviews_for_contractor(
             return None
 
     # Fetch depuis l'API
-    data = await fetch_google_reviews(contractor.nom_legal, contractor.ville or "")
+    data = await fetch_google_reviews(
+        contractor.nom_legal, contractor.ville or "", neq=contractor.neq
+    )
 
     if data:
         if cached:
