@@ -29,10 +29,27 @@ _SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Préfixes descriptifs à retirer pour un nom plus court
+_PREFIX_RE = re.compile(
+    r"^(construction\s+et\s+r[eé]novation|construction\s+et\s+r[eé]no|"
+    r"construction|r[eé]novation|r[eé]no|entrepreneur\s+g[eé]n[eé]ral|"
+    r"excavation|peinture|plomberie|[eé]lectricit[eé]|toiture|couverture|"
+    r"ma[cç]onnerie|charpente|isolations?|vente|installation|services?\s+de)\s+",
+    re.IGNORECASE,
+)
+
 
 def _clean_name(nom: str) -> str:
     """Retire les suffixes juridiques du nom pour améliorer la recherche Google."""
     return _SUFFIX_RE.sub("", nom).strip()
+
+
+def _short_name(nom: str) -> str:
+    """Retire suffixes + préfixes descriptifs pour un nom ultra-court.
+    ex: 'Construction Et Renovation M. Dubeau inc.' → 'M. Dubeau'
+    """
+    name = _clean_name(nom)
+    return _PREFIX_RE.sub("", name).strip()
 
 
 async def search_place(
@@ -40,12 +57,19 @@ async def search_place(
 ) -> Optional[str]:
     """
     Recherche un lieu sur Google Places par nom + ville.
-    Essaie d'abord le nom nettoyé, puis le nom complet si pas de résultat.
+    Essaie plusieurs variantes du nom, du plus spécifique au plus court.
     Retourne le placeId du premier résultat, ou None.
     """
-    queries = [f"{_clean_name(nom)} {ville}"]
-    if _clean_name(nom) != nom:
-        queries.append(f"{nom} {ville}")
+    clean = _clean_name(nom)
+    short = _short_name(nom)
+
+    # Stratégies de recherche, de la plus spécifique à la plus large
+    queries = []
+    if clean != nom:
+        queries.append(f"{clean} {ville}")
+    queries.append(f"{nom} {ville}")
+    if short and short != clean and short != nom:
+        queries.append(f"{short} {ville}")
 
     for query in queries:
         resp = await client.post(
