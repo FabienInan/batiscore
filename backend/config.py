@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # CanLII API
     canlii_api_key: str = ""
 
+    # Google Places API
+    google_places_api_key: str = ""
+
     # OPC Scraping
     opc_scraping_delay: float = 2.5
 
