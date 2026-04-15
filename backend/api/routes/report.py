@@ -12,6 +12,7 @@ from models import Contractor, Report, RBQEvent, SEAOContract
 from scoring.engine import calculate_score, calculate_score_breakdown, score_label
 from ingestion.sources.opc_scraper import get_opc_plaintes_for_contractor
 from ingestion.sources.canlii import get_litiges_for_contractor
+from ingestion.sources.google_places import get_google_reviews_for_contractor
 from ingestion.transforms.normalize import normalize_name
 
 
@@ -68,6 +69,14 @@ async def get_report(
         print(f"CanLII: Échec silencieux pour contractor {contractor_id}: {e}")
         await db.rollback()
         litiges = []
+
+    # Récupérer les avis Google (on-demand avec cache 7j)
+    google_reviews = None
+    try:
+        google_reviews = await get_google_reviews_for_contractor(contractor_id, db)
+    except Exception as e:
+        print(f"Google: Échec silencieux pour contractor {contractor_id}: {e}")
+        await db.rollback()
 
     # Récupérer les contrats publics
     contrats_result = await db.execute(
@@ -139,6 +148,7 @@ async def get_report(
             }
             for c in contrats
         ],
+        **({"google_reviews": google_reviews} if google_reviews else {}),
     }
 
 
