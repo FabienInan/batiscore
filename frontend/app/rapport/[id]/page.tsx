@@ -17,6 +17,7 @@ import {
   TriangleAlert,
   ArrowLeft,
   Building2,
+  Star,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -93,6 +94,10 @@ interface Report {
     montant: number | null
     date: string | null
   }>
+  google_reviews?: {
+    rating: number
+    nb_avis: number
+  }
 }
 
 export default function ReportPage() {
@@ -215,12 +220,30 @@ export default function ReportPage() {
               </div>
             </div>
 
-            <div className={`flex flex-col items-center p-5 rounded-2xl border self-start min-w-[8rem] ${getScoreBg(c.score)}`}>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
-              <div className={`text-4xl font-black ${getScoreColor(c.score)}`}>
-                {c.score ?? '?'}
+            <div className="flex flex-col sm:flex-row gap-3 self-start">
+              <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] ${getScoreBg(c.score)}`}>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
+                <div className={`text-4xl font-black ${getScoreColor(c.score)}`}>
+                  {c.score ?? '?'}
+                </div>
+                <div className="text-[10px] font-medium text-slate-500 mt-1">{c.score_label}</div>
               </div>
-              <div className="text-[10px] font-medium text-slate-500 mt-1">{c.score_label}</div>
+              {report.google_reviews && (
+                <div className="flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] bg-slate-800 border-slate-700">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Google</div>
+                  <div className="flex items-center gap-0.5 mb-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={14}
+                        className={s <= Math.round(report.google_reviews!.rating) ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}
+                      />
+                    ))}
+                  </div>
+                  <div className="text-sm font-bold text-white">{report.google_reviews.rating.toFixed(1)}</div>
+                  <div className="text-[10px] font-medium text-slate-500 mt-0.5">{report.google_reviews.nb_avis} avis</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
