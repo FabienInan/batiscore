@@ -7,10 +7,14 @@ API : Clé API — Text Search + Place Details.
 Retourne la note moyenne et le nombre d'avis pour un entrepreneur.
 Appels : 2 par contractor (search + details). Cache 7j en base.
 """
+from datetime import datetime
 from typing import Optional
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
+from models import Contractor, GoogleReviewsCache
 
 GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1"
 CACHE_TTL_DAYS = 7
@@ -84,3 +88,75 @@ async def fetch_google_reviews(
             return None
 
         return {"place_id": place_id, **details}
+
+
+async def get_google_reviews_for_contractor(
+    contractor_id: int, db: AsyncSession
+) -> Optional[dict]:
+    """
+    Récupère les avis Google pour un entrepreneur.
+    Utilise le cache si < 7 jours, sinon fetch depuis l'API.
+    Retourne {"rating": float, "nb_avis": int} ou None.
+    """
+    result = await db.execute(
+        select(Contractor).where(Contractor.id == contractor_id)
+    )
+    contractor = result.scalar_one_or_none()
+
+    if not contractor:
+        return None
+
+    # Vérifier le cache
+    cache_result = await db.execute(
+        select(GoogleReviewsCache).where(
+            GoogleReviewsCache.contractor_id == contractor_id
+        )
+    )
+    cached = cache_result.scalar_one_or_none()
+
+    if cached and cached.fetched_at:
+        age = (datetime.utcnow() - cached.fetched_at).days
+        if age < CACHE_TTL_DAYS:
+            if cached.rating is not None:
+                return {"rating": cached.rating, "nb_avis": cached.nb_avis or 0}
+            return None
+
+    # Fetch depuis l'API
+    data = await fetch_google_reviews(contractor.nom_legal, contractor.ville or "")
+
+    if data:
+        if cached:
+            cached.place_id = data["place_id"]
+            cached.rating = data["rating"]
+            cached.nb_avis = data["nb_avis"]
+            cached.fetched_at = datetime.utcnow()
+        else:
+            db.add(GoogleReviewsCache(
+                contractor_id=contractor_id,
+                place_id=data["place_id"],
+                rating=data["rating"],
+                nb_avis=data["nb_avis"],
+            ))
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+        return {"rating": data["rating"], "nb_avis": data["nb_avis"]}
+
+    # Pas de match Google — enregistrer un cache vide pour ne pas ré-essayer
+    if cached:
+        cached.rating = None
+        cached.nb_avis = None
+        cached.fetched_at = datetime.utcnow()
+    else:
+        db.add(GoogleReviewsCache(
+            contractor_id=contractor_id,
+            place_id=None,
+            rating=None,
+            nb_avis=None,
+        ))
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return None
