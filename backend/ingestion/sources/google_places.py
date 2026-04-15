@@ -53,7 +53,8 @@ def _short_name(nom: str) -> str:
 
 
 async def search_place(
-    client: httpx.AsyncClient, nom: str, ville: str
+    client: httpx.AsyncClient, nom: str, ville: str,
+    noms_commerciaux: list[str] | None = None,
 ) -> Optional[str]:
     """
     Recherche un lieu sur Google Places par nom + ville.
@@ -65,6 +66,10 @@ async def search_place(
 
     # Stratégies de recherche, de la plus spécifique à la plus large
     queries = []
+    # Noms commerciaux en premier (souvent plus proches du nom Google)
+    if noms_commerciaux:
+        for nc in noms_commerciaux:
+            queries.append(f"{nc} {ville}")
     if clean != nom:
         queries.append(f"{clean} {ville}")
     queries.append(f"{nom} {ville}")
@@ -118,7 +123,7 @@ async def get_place_details(
 
 
 async def fetch_google_reviews(
-    nom: str, ville: str
+    nom: str, ville: str, noms_commerciaux: list[str] | None = None,
 ) -> Optional[dict]:
     """
     Orchestre la recherche + détails pour un entrepreneur.
@@ -128,7 +133,7 @@ async def fetch_google_reviews(
         return None
 
     async with httpx.AsyncClient(timeout=10) as client:
-        place_id = await search_place(client, nom, ville)
+        place_id = await search_place(client, nom, ville, noms_commerciaux=noms_commerciaux)
         if not place_id:
             return None
 
@@ -174,7 +179,10 @@ async def get_google_reviews_for_contractor(
             return None
 
     # Fetch depuis l'API
-    data = await fetch_google_reviews(contractor.nom_legal, contractor.ville or "")
+    data = await fetch_google_reviews(
+        contractor.nom_legal, contractor.ville or "",
+        noms_commerciaux=contractor.noms_secondaires,
+    )
 
     if data:
         if cached:
