@@ -7,6 +7,7 @@ API : Clé API — Text Search + Place Details.
 Retourne la note moyenne et le nombre d'avis pour un entrepreneur.
 Appels : 2 par contractor (search + details). Cache 7j en base.
 """
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -19,29 +20,49 @@ from models import Contractor, GoogleReviewsCache
 GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1"
 CACHE_TTL_DAYS = 7
 
+# Suffixes juridiques québécois à retirer pour la recherche Google
+_SUFFIX_RE = re.compile(
+    r"\s*,?\s*"
+    r"(inc\.|s\.e\.n\.c\.|s\.e\.n\.c|ltée|ltée\.|ltd\.|inc|s\.a\.|s\.a|"
+    r"s\.r\.o\.|s\.r\.o|s\.e\.p\.|s\.e\.p|c\.s\.s\.|c\.s\.s)"
+    r"\s*$",
+    re.IGNORECASE,
+)
+
+
+def _clean_name(nom: str) -> str:
+    """Retire les suffixes juridiques du nom pour améliorer la recherche Google."""
+    return _SUFFIX_RE.sub("", nom).strip()
+
 
 async def search_place(
     client: httpx.AsyncClient, nom: str, ville: str
 ) -> Optional[str]:
     """
     Recherche un lieu sur Google Places par nom + ville.
+    Essaie d'abord le nom nettoyé, puis le nom complet si pas de résultat.
     Retourne le placeId du premier résultat, ou None.
     """
-    resp = await client.post(
-        f"{GOOGLE_PLACES_BASE}/places:searchText",
-        headers={
-            "X-Goog-Api-Key": settings.google_places_api_key,
-            "Content-Type": "application/json",
-            "X-Goog-FieldMask": "places.id",
-        },
-        json={"textQuery": f"{nom} {ville}"},
-    )
-    if resp.status_code != 200:
-        return None
-    places = resp.json().get("places", [])
-    if not places:
-        return None
-    return places[0].get("id")
+    queries = [f"{_clean_name(nom)} {ville}"]
+    if _clean_name(nom) != nom:
+        queries.append(f"{nom} {ville}")
+
+    for query in queries:
+        resp = await client.post(
+            f"{GOOGLE_PLACES_BASE}/places:searchText",
+            headers={
+                "X-Goog-Api-Key": settings.google_places_api_key,
+                "Content-Type": "application/json",
+                "X-Goog-FieldMask": "places.id",
+            },
+            json={"textQuery": query},
+        )
+        if resp.status_code != 200:
+            continue
+        places = resp.json().get("places", [])
+        if places:
+            return places[0].get("id")
+    return None
 
 
 async def get_place_details(
