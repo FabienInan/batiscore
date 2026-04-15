@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from uuid import uuid4
 
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Numeric, ARRAY, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Numeric, Float, ARRAY, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -118,4 +118,14 @@ class OPCCache(Base):
 
     neq = Column(String(10), primary_key=True)
     data = Column(JSONB, nullable=True)
+    fetched_at = Column(DateTime, default=datetime.utcnow)
+
+
+class GoogleReviewsCache(Base):
+    __tablename__ = "google_reviews_cache"
+
+    contractor_id = Column(Integer, ForeignKey("contractors.id"), primary_key=True)
+    place_id = Column(String(200), nullable=True)
+    rating = Column(Float, nullable=True)
+    nb_avis = Column(Integer, nullable=True)
     fetched_at = Column(DateTime, default=datetime.utcnow)
