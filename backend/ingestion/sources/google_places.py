@@ -131,13 +131,35 @@ def _name_matches(google_name: str, reference_names: list[str]) -> bool:
         if len(common) >= 2:
             return True
         # 1 seul mot significatif commun : vérifier aussi les mots bruts
-        # (incluant les mots de métier) — si 2+ mots bruts communs, OK
+        # On utilise les mots bruts (sans filtrer les stop words métier)
+        # mais on exclut les suffixes juridiques et articles
         if len(common) == 1:
-            g_raw = set(_normalize_for_compare(google_name).split())
-            r_raw = set(_normalize_for_compare(ref).split())
+            _JUNK = {"inc", "ltee", "ltée", "ltd", "enr", "cie", "co", "corp", "sa",
+                      "sro", "sep", "css", "senc", "les", "le", "la", "du", "de",
+                      "des", "et", "and", "the",
+                      # Mots de métier exclus du fallback brut (trop de faux positifs)
+                      "construction", "constructions", "renovation", "reno",
+                      "peinture", "plomberie", "maconnerie", "maçonnerie",
+                      "excavation", "excavations", "isolation", "ventilation",
+                      "chauffage", "climatisation", "toiture", "toitures",
+                      "couverture", "couvertures", "charpente", "installation",
+                      "calfeutrage", "ceramique", "céramique", "gouttieres",
+                      "gouttières", "platre", "platrage", "ebenisterie",
+                      "ébénisterie", "menuiserie", "soudures", "soudure",
+                      "refrigeration", "réfrigération", "electrique", "électrique",
+                      "electric", "service", "services", "entretien", "entretiens",
+                      "residentielle", "planchers", "pavage", "armoires",
+                      "forestier", "boulanger", "boulangerie"}
+            g_raw = {w for w in _normalize_for_compare(google_name).split() if w not in _JUNK}
+            r_raw = {w for w in _normalize_for_compare(ref).split() if w not in _JUNK}
             raw_common = g_raw & r_raw
             if len(raw_common) >= 2:
                 return True
+            # Si 1 seul mot brut commun mais c'est un nom propre distinctif
+            if len(raw_common) == 1:
+                word = next(iter(raw_common))
+                if len(word) >= 5 and word not in _STOP_WORDS:
+                    return True
     return False
 
 
