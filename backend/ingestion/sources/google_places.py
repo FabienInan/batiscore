@@ -289,13 +289,14 @@ def _score_candidate(
     rbq_ville: str,
     rbq_postal: str | None,
     candidate: dict,
+    rbq_adresse: str | None = None,
 ) -> _MatchScore:
     """
     Score un candidat Google Places sur 5 facteurs pondérés.
     Prend le meilleur score nom parmi tous les noms de référence.
     """
     gmb_name = candidate.get("name", "")
-    gmb_address = candidate.get("formattedAddress", "").lower()
+    gmb_address = candidate.get("formattedAddress", "")
     gmb_primary_type = candidate.get("primaryType")
     place_id = candidate.get("id", "")
 
@@ -313,18 +314,21 @@ def _score_candidate(
 
     # ── 2. VILLE (poids 25%) ─────────────────────────────────
     rbq_ville_norm = _normalize_for_compare(rbq_ville)
-    if rbq_ville_norm and rbq_ville_norm in _normalize_for_compare(gmb_address):
+    gmb_addr_norm = _normalize_for_compare(gmb_address)
+    if rbq_ville_norm and rbq_ville_norm in gmb_addr_norm:
         scores["ville"] = 1.0
-    elif rbq_ville_norm and fuzz.partial_ratio(rbq_ville_norm, _normalize_for_compare(gmb_address)) > 80:
+    elif rbq_ville_norm and fuzz.partial_ratio(rbq_ville_norm, gmb_addr_norm) > 80:
         scores["ville"] = 0.5
     else:
         scores["ville"] = 0.0
 
     # ── 3. CODE POSTAL (poids 20%) ───────────────────────────
     gmb_postal = _extract_postal_code(gmb_address)
-    if gmb_postal and rbq_postal:
-        full_match = 0.6 if gmb_postal == rbq_postal else 0.0
-        fsa_match = 0.4 if gmb_postal[:3] == rbq_postal[:3] else 0.0
+    # Normaliser rbq_postal au même format (ex: "G1R2B5" → "G1R 2B5")
+    rbq_postal_norm = _extract_postal_code(rbq_postal) if rbq_postal else None
+    if gmb_postal and rbq_postal_norm:
+        full_match = 0.6 if gmb_postal == rbq_postal_norm else 0.0
+        fsa_match = 0.4 if gmb_postal[:3] == rbq_postal_norm[:3] else 0.0
         scores["postal"] = full_match + fsa_match
     else:
         scores["postal"] = 0.0
@@ -333,7 +337,7 @@ def _score_candidate(
     scores["type"] = 1.0 if _is_construction_type(gmb_primary_type) else 0.3
 
     # ── 5. NUMÉRO DE RUE (poids 5%) ──────────────────────────
-    rbq_num = _extract_street_number(reference_names[0]) if reference_names else None
+    rbq_num = _extract_street_number(rbq_adresse) if rbq_adresse else None
     gmb_num = _extract_street_number(gmb_address)
     scores["numero_rue"] = 1.0 if rbq_num and gmb_num and rbq_num == gmb_num else 0.0
 
@@ -479,6 +483,7 @@ async def search_place(
     client: httpx.AsyncClient, nom: str, ville: str,
     noms_commerciaux: list[str] | None = None,
     code_postal: str | None = None,
+    adresse: str | None = None,
 ) -> Optional[str]:
     """
     Recherche un lieu sur Google Places par nom + ville.
@@ -530,7 +535,7 @@ async def search_place(
                 "formattedAddress": place.get("formattedAddress", ""),
                 "primaryType": place.get("primaryType"),
             }
-            score = _score_candidate(reference_names, ville, code_postal, candidate)
+            score = _score_candidate(reference_names, ville, code_postal, candidate, rbq_adresse=adresse)
             print(f"Google: candidate '{candidate['name']}' score={score.total} {score.breakdown}")
             if best_match is None or score.total > best_match.total:
                 best_match = score
@@ -602,7 +607,7 @@ async def fetch_google_reviews(
 
         # 3. Dernier recours : recherche par nom (text search)
         if not place_id:
-            place_id = await search_place(client, nom, ville, noms_commerciaux=noms_commerciaux, code_postal=code_postal)
+            place_id = await search_place(client, nom, ville, noms_commerciaux=noms_commerciaux, code_postal=code_postal, adresse=adresse)
 
         if not place_id:
             return None
