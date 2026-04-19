@@ -10,6 +10,7 @@ Appels : 2 par contractor (search + details). Cache 7j en base.
 import re
 import unicodedata
 from datetime import datetime
+from dataclasses import dataclass
 from typing import Optional
 
 import httpx
@@ -265,6 +266,86 @@ def _is_construction_type(primary_type: str | None) -> bool:
     if not primary_type:
         return False
     return primary_type in _CONSTRUCTION_TYPES
+
+
+@dataclass
+class _MatchScore:
+    place_id: str
+    name: str
+    total: float
+    breakdown: dict
+
+
+_MATCH_WEIGHTS = {
+    "nom":        0.40,
+    "ville":      0.25,
+    "postal":     0.20,
+    "type":       0.10,
+    "numero_rue": 0.05,
+}
+
+def _score_candidate(
+    reference_names: list[str],
+    rbq_ville: str,
+    rbq_postal: str | None,
+    candidate: dict,
+) -> _MatchScore:
+    """
+    Score un candidat Google Places sur 5 facteurs pondérés.
+    Prend le meilleur score nom parmi tous les noms de référence.
+    """
+    gmb_name = candidate.get("name", "")
+    gmb_address = candidate.get("formattedAddress", "").lower()
+    gmb_primary_type = candidate.get("primaryType")
+    place_id = candidate.get("id", "")
+
+    scores = {}
+
+    # ── 1. NOM (poids 40%) ──────────────────────────────────
+    best_nom = 0.0
+    for ref_name in reference_names:
+        ref_norm = _normalize_for_compare(ref_name)
+        gmb_norm = _normalize_for_compare(gmb_name)
+        token_sort = fuzz.token_sort_ratio(ref_norm, gmb_norm) / 100
+        partial = fuzz.partial_ratio(ref_norm, gmb_norm) / 100
+        best_nom = max(best_nom, token_sort, partial)
+    scores["nom"] = best_nom
+
+    # ── 2. VILLE (poids 25%) ─────────────────────────────────
+    rbq_ville_norm = _normalize_for_compare(rbq_ville)
+    if rbq_ville_norm and rbq_ville_norm in _normalize_for_compare(gmb_address):
+        scores["ville"] = 1.0
+    elif rbq_ville_norm and fuzz.partial_ratio(rbq_ville_norm, _normalize_for_compare(gmb_address)) > 80:
+        scores["ville"] = 0.5
+    else:
+        scores["ville"] = 0.0
+
+    # ── 3. CODE POSTAL (poids 20%) ───────────────────────────
+    gmb_postal = _extract_postal_code(gmb_address)
+    if gmb_postal and rbq_postal:
+        full_match = 0.6 if gmb_postal == rbq_postal else 0.0
+        fsa_match = 0.4 if gmb_postal[:3] == rbq_postal[:3] else 0.0
+        scores["postal"] = full_match + fsa_match
+    else:
+        scores["postal"] = 0.0
+
+    # ── 4. TYPE D'ACTIVITÉ (poids 10%) ───────────────────────
+    scores["type"] = 1.0 if _is_construction_type(gmb_primary_type) else 0.3
+
+    # ── 5. NUMÉRO DE RUE (poids 5%) ──────────────────────────
+    rbq_num = _extract_street_number(reference_names[0]) if reference_names else None
+    gmb_num = _extract_street_number(gmb_address)
+    scores["numero_rue"] = 1.0 if rbq_num and gmb_num and rbq_num == gmb_num else 0.0
+
+    # ── SCORE PONDÉRÉ FINAL ──────────────────────────────────
+    total = sum(scores[k] * _MATCH_WEIGHTS[k] for k in _MATCH_WEIGHTS)
+
+    return _MatchScore(
+        place_id=place_id,
+        name=gmb_name,
+        total=round(total, 3),
+        breakdown=scores,
+    )
 
 
 async def search_place_by_phone(
