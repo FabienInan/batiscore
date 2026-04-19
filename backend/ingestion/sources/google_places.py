@@ -31,6 +31,9 @@ _STOP_WORDS = {
     "peinture", "plomberie", "electricite", "toiture", "couverture",
     "maconnerie", "charpente", "excavation", "installation", "vente",
     "service", "services", "entretien", "entretiens", "residentielle",
+    # Toponymes / termes trop génériques
+    "quebec", "québec", "canada", "montreal", "montréal", "laval",
+    "location", "groupe", "centre", "mega",
 }
 
 # Suffixes juridiques québécois à retirer pour la recherche Google
@@ -76,8 +79,9 @@ def _significant_words(s: str) -> set[str]:
 def _name_matches(google_name: str, reference_names: list[str]) -> bool:
     """
     Vérifie que le nom Google correspond à l'un des noms de référence.
-    Critère : au moins 2 mots significatifs communs, ou 1 mot distinctif
-    (4+ chars, probablement un nom propre ou une marque).
+    Critère : au moins 2 mots significatifs communs, ou 1 mot très distinctif
+    (6+ chars, probablement un nom propre unique).
+    Les mots de métier seuls ne suffisent pas.
     """
     g_words = _significant_words(google_name)
     if not g_words:
@@ -89,7 +93,8 @@ def _name_matches(google_name: str, reference_names: list[str]) -> bool:
             return True
         if len(common) == 1:
             word = next(iter(common))
-            if len(word) >= 4:
+            # Un seul mot commun : doit être long et distinctif (nom propre/marque)
+            if len(word) >= 6:
                 return True
     return False
 
@@ -109,7 +114,7 @@ async def search_place(
     """
     Recherche un lieu sur Google Places par nom + ville.
     Essaie plusieurs variantes du nom, du plus spécifique au plus court.
-    Valide que le nom Google correspond à l'entrepreneur avant de retourner.
+    Valide que le nom Google ET la ville correspondent avant de retourner.
     Retourne le placeId du premier résultat validé, ou None.
     """
     clean = _clean_name(nom)
@@ -119,6 +124,9 @@ async def search_place(
     reference_names = [nom]
     if noms_commerciaux:
         reference_names.extend(noms_commerciaux)
+
+    # Normaliser la ville pour comparaison
+    ville_norm = _normalize_for_compare(ville)
 
     # Stratégies de recherche, de la plus spécifique à la plus large
     queries = []
@@ -139,7 +147,7 @@ async def search_place(
             headers={
                 "X-Goog-Api-Key": settings.google_places_api_key,
                 "Content-Type": "application/json",
-                "X-Goog-FieldMask": "places.id,places.displayName",
+                "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress",
             },
             json={"textQuery": query},
         )
@@ -150,10 +158,21 @@ async def search_place(
         for place in places:
             place_id = place.get("id")
             display_name = place.get("displayName", {}).get("text", "")
+            address = place.get("formattedAddress", "")
+
+            # Vérifier que la ville correspond (au moins un mot de la ville dans l'adresse)
+            addr_norm = _normalize_for_compare(address)
+            if ville_norm and ville_norm not in addr_norm:
+                # Vérifier aussi les mots individuels de la ville
+                ville_words = ville_norm.split()
+                if not any(w in addr_norm for w in ville_words if len(w) >= 4):
+                    print(f"Google: skipping '{display_name}' — city mismatch ({ville} not in {address})")
+                    continue
+
             if _name_matches(display_name, reference_names):
                 print(f"Google: matched '{display_name}' for query '{query}'")
                 return place_id
-            print(f"Google: skipping '{display_name}' — no word overlap with reference names")
+            print(f"Google: skipping '{display_name}' — name doesn't match reference names")
         print(f"Google: no validated results for '{query}'")
     return None
 
