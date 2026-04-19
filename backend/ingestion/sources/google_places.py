@@ -31,9 +31,18 @@ _STOP_WORDS = {
     "peinture", "plomberie", "electricite", "toiture", "couverture",
     "maconnerie", "charpente", "excavation", "installation", "vente",
     "service", "services", "entretien", "entretiens", "residentielle",
+    "calfeutrage", "isolation", "ventilation", "chauffage", "climatisation",
+    "refrigeration", "refrigération", "soudures", "soudure", "platre", "platrage",
+    "ebénisterie", "ebenisterie", "menuiserie", "cabinets", "armoires",
+    "electrique", "electriques", "mecanique", "mecaniques",
     # Toponymes / termes trop génériques
     "quebec", "québec", "canada", "montreal", "montréal", "laval",
     "location", "groupe", "centre", "mega",
+    # Termes commerciaux génériques
+    "gestion", "distribution", "entreprises", "immeubles", "habitations",
+    "solutions", "concepts", "projets", "produits", "developpement",
+    # Non-construction
+    "ecole", "school", "preschool",
 }
 
 # Suffixes juridiques québécois à retirer pour la recherche Google
@@ -71,30 +80,63 @@ def _normalize_for_compare(s: str) -> str:
 
 
 def _significant_words(s: str) -> set[str]:
-    """Extrait les mots significatifs d'un nom (sans accents, sans stop words, 2+ chars)."""
+    """Extrait les mots significatifs d'un nom (sans accents, sans stop words, 3+ chars)."""
     words = _normalize_for_compare(s).split()
-    return {w for w in words if len(w) >= 2 and w not in _STOP_WORDS}
+    return {w for w in words if len(w) >= 3 and w not in _STOP_WORDS}
+
+
+def _is_number_name(nom: str) -> bool:
+    """Détecte les noms à numéro (ex: '9388-3346 Québec inc.') — pas assez d'info pour matcher Google."""
+    cleaned = _SUFFIX_RE.sub("", nom).strip()
+    # Si le nom commence par des chiffres (avec ou sans tirets), c'est un nom à numéro
+    if re.match(r"^\d", cleaned):
+        # Enlever les mots "Québec"/"Canada" et les chiffres/tirets, voir s'il reste du texte
+        stripped = re.sub(r"\b(quebec|canada|limited|ltee)\b", "", cleaned, flags=re.IGNORECASE).strip()
+        stripped = re.sub(r"[\d\-.']", "", stripped).strip()
+        return len(stripped) < 3
+    return False
 
 
 def _name_matches(google_name: str, reference_names: list[str]) -> bool:
     """
     Vérifie que le nom Google correspond à l'un des noms de référence.
-    Critère : au moins 2 mots significatifs communs, ou 1 mot très distinctif
-    (6+ chars, probablement un nom propre unique).
-    Les mots de métier seuls ne suffisent pas.
+    Critère : au moins 2 mots significatifs communs, ou 1 mot distinctif
+    (5+ chars, probablement un nom propre).
+    Si le nom de référence n'a que des mots courts (initiales), exige
+    que le nom Google contienne ces initiales exactes.
     """
     g_words = _significant_words(google_name)
     if not g_words:
         return False
+
     for ref in reference_names:
         r_words = _significant_words(ref)
+
+        # Si le nom de référence n'a pas de mots longs (que des initiales/mots courts),
+        # exiger que le nom Google contienne cette séquence normalisée
+        long_words = {w for w in r_words if len(w) >= 4}
+        if not long_words:
+            ref_norm = _normalize_for_compare(ref).replace(" ", "")
+            g_norm = _normalize_for_compare(google_name).replace(" ", "")
+            if ref_norm in g_norm or g_norm in ref_norm:
+                return True
+            # Ou les initiales doivent matcher (ex: "HD" dans "ISOLATION HD")
+            ref_initials = "".join(w[0] for w in _normalize_for_compare(ref).split() if w[0].isalpha())
+            g_initials = "".join(w[0] for w in _normalize_for_compare(google_name).split() if w[0].isalpha())
+            if ref_initials and ref_initials == g_initials:
+                return True
+            continue
+
         common = g_words & r_words
         if len(common) >= 2:
             return True
+        # 1 seul mot significatif commun : vérifier aussi les mots bruts
+        # (incluant les mots de métier) — si 2+ mots bruts communs, OK
         if len(common) == 1:
-            word = next(iter(common))
-            # Un seul mot commun : doit être long et distinctif (nom propre/marque)
-            if len(word) >= 6:
+            g_raw = set(_normalize_for_compare(google_name).split())
+            r_raw = set(_normalize_for_compare(ref).split())
+            raw_common = g_raw & r_raw
+            if len(raw_common) >= 2:
                 return True
     return False
 
@@ -209,6 +251,10 @@ async def fetch_google_reviews(
     Retourne {"place_id": str, "rating": float, "nb_avis": int} ou None.
     """
     if not settings.google_places_api_key:
+        return None
+
+    # Noms à numéro (ex: "9388-3346 Québec inc.") — pas assez d'info pour matcher
+    if _is_number_name(nom) and not noms_commerciaux:
         return None
 
     async with httpx.AsyncClient(timeout=10) as client:
