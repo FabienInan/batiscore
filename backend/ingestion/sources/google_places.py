@@ -250,11 +250,14 @@ def _score_candidate(
 
 async def search_place_by_phone(
     client: httpx.AsyncClient, phone: str,
+    reference_names: list[str] | None = None,
 ) -> Optional[str]:
     """
     Recherche un lieu Google par numéro de téléphone (FindPlaceFromText).
-    Retourne le placeId ou None. Quasi aucun faux positif.
-    Utilise l'ancienne API Places (plus fiable pour les numéros de téléphone).
+    Valide le nom du résultat vs les noms de référence pour éviter les faux positifs.
+    Le téléphone est une preuve forte d'identité — on rejette juste les noms
+    sans rapport (token_sort_ratio < 0.45 vs noms de référence).
+    Retourne le placeId ou None.
     """
     digits = re.sub(r"\D", "", phone)
     if len(digits) == 10:
@@ -270,7 +273,7 @@ async def search_place_by_phone(
         params={
             "input": phone_e164,
             "inputtype": "phonenumber",
-            "fields": "place_id,name,formatted_address",
+            "fields": "place_id,name",
             "key": settings.google_places_api_key,
         },
     )
@@ -285,7 +288,59 @@ async def search_place_by_phone(
     place = candidates[0]
     place_id = place.get("place_id")
     name = place.get("name", "")
-    print(f"Google: phone match → '{name}' (place_id={place_id})")
+
+    # Valider le nom si des noms de référence sont fournis
+    if reference_names:
+        # Ajouter le nom court aux références pour attraper les cas
+        # comme "Entreprises de construction Dawco" → "DAWCO"
+        all_refs = list(reference_names)
+        for ref in reference_names:
+            short = _short_name(ref)
+            if short and short != ref:
+                all_refs.append(short)
+
+        g_norm = _normalize_for_compare(name)
+
+        # Comparaison 1: noms complets normalisés (garde les initiales comme "E.G.")
+        best_max = 0.0
+        best_ts = 0.0
+        best_pr = 0.0
+        for ref in all_refs:
+            r_norm = _normalize_for_compare(ref)
+            ts = fuzz.token_sort_ratio(r_norm, g_norm) / 100
+            pr = fuzz.partial_ratio(r_norm, g_norm) / 100
+            best_max = max(best_max, ts, pr)
+            best_ts = max(best_ts, ts)
+            best_pr = max(best_pr, pr)
+
+        # Comparaison 2: mots significatifs uniquement (filtre le bruit type "inc", "g", "s")
+        g_sig = " ".join(sorted(_significant_words(name)))
+        sig_best_max = 0.0
+        if g_sig:
+            for ref in all_refs:
+                r_sig = " ".join(sorted(_significant_words(ref)))
+                if r_sig:
+                    ts2 = fuzz.token_sort_ratio(r_sig, g_sig) / 100
+                    pr2 = fuzz.partial_ratio(r_sig, g_sig) / 100
+                    sig_best_max = max(sig_best_max, ts2, pr2)
+
+        # Le téléphone est une preuve forte — on rejette juste les noms sans rapport.
+        # On accepte si l'une des deux comparaisons passe le seuil :
+        # - Comparaison complète : max(token_sort, partial) ≥ 0.60, avec token_sort ≥ 0.45
+        #   si le nom Google est court (≤ 2 mots significatifs). Exception pr ≥ 0.90.
+        # - Comparaison significative : max ≥ 0.60 (mots clés seulement, moins de bruit).
+        g_sig_words = [w for w in g_norm.split() if len(w) >= 3 and w not in _STOP_WORDS]
+        short_name_check = len(g_sig_words) <= 2
+        full_pass = best_max >= 0.60 and (not short_name_check or best_ts >= 0.45 or best_pr >= 0.90)
+        sig_pass = sig_best_max >= 0.60
+        rejected = not full_pass and not sig_pass
+
+        if rejected:
+            print(f"Google: phone match '{name}' REJECTED nom_max={best_max:.3f} sig_max={sig_best_max:.3f}")
+            return None
+        print(f"Google: phone match → '{name}' (nom_max={best_max:.3f} sig_max={sig_best_max:.3f})")
+    else:
+        print(f"Google: phone match → '{name}' (place_id={place_id})")
     return place_id
 
 
@@ -493,7 +548,13 @@ async def fetch_google_reviews(
 
         # 1. Recherche par téléphone (priorité — quasi aucun faux positif)
         if telephone and _is_valid_qc_phone(telephone):
-            place_id = await search_place_by_phone(client, telephone)
+            reference_names = [nom]
+            if noms_commerciaux:
+                reference_names.extend(noms_commerciaux)
+            place_id = await search_place_by_phone(
+                client, telephone,
+                reference_names=reference_names,
+            )
 
         # 2. Recherche par adresse (géocodage + nearby + fuzzy match)
         if not place_id and adresse:
