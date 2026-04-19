@@ -478,23 +478,21 @@ async def search_place_by_address(
 async def search_place(
     client: httpx.AsyncClient, nom: str, ville: str,
     noms_commerciaux: list[str] | None = None,
+    code_postal: str | None = None,
 ) -> Optional[str]:
     """
     Recherche un lieu sur Google Places par nom + ville.
     Essaie plusieurs variantes du nom, du plus spécifique au plus court.
-    Valide que le nom Google ET la ville correspondent avant de retourner.
-    Retourne le placeId du premier résultat validé, ou None.
+    Score chaque candidat sur 5 facteurs, garde le meilleur si score ≥ 0.75.
+    Retourne le placeId du meilleur match, ou None.
     """
     clean = _clean_name(nom)
     short = _short_name(nom)
 
-    # Noms de référence pour validation
+    # Noms de référence pour scoring
     reference_names = [nom]
     if noms_commerciaux:
         reference_names.extend(noms_commerciaux)
-
-    # Normaliser la ville pour comparaison
-    ville_norm = _normalize_for_compare(ville)
 
     # Stratégies de recherche, de la plus spécifique à la plus large
     queries = []
@@ -508,6 +506,8 @@ async def search_place(
     if short and short != clean and short != nom and len(short.split()) >= 2:
         queries.append(f"{short} {ville}")
 
+    best_match: _MatchScore | None = None
+
     for query in queries:
         print(f"Google: searching '{query}'")
         resp = await client.post(
@@ -515,7 +515,7 @@ async def search_place(
             headers={
                 "X-Goog-Api-Key": settings.google_places_api_key,
                 "Content-Type": "application/json",
-                "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress",
+                "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.primaryType",
             },
             json={"textQuery": query},
         )
@@ -524,24 +524,25 @@ async def search_place(
             continue
         places = resp.json().get("places", [])
         for place in places:
-            place_id = place.get("id")
-            display_name = place.get("displayName", {}).get("text", "")
-            address = place.get("formattedAddress", "")
+            candidate = {
+                "id": place.get("id", ""),
+                "name": place.get("displayName", {}).get("text", ""),
+                "formattedAddress": place.get("formattedAddress", ""),
+                "primaryType": place.get("primaryType"),
+            }
+            score = _score_candidate(reference_names, ville, code_postal, candidate)
+            print(f"Google: candidate '{candidate['name']}' score={score.total} {score.breakdown}")
+            if best_match is None or score.total > best_match.total:
+                best_match = score
 
-            # Vérifier que la ville correspond (au moins un mot de la ville dans l'adresse)
-            addr_norm = _normalize_for_compare(address)
-            if ville_norm and ville_norm not in addr_norm:
-                # Vérifier aussi les mots individuels de la ville
-                ville_words = ville_norm.split()
-                if not any(w in addr_norm for w in ville_words if len(w) >= 4):
-                    print(f"Google: skipping '{display_name}' — city mismatch ({ville} not in {address})")
-                    continue
+    if best_match and best_match.total >= 0.75:
+        print(f"Google: best match '{best_match.name}' score={best_match.total} (threshold=0.75)")
+        return best_match.place_id
 
-            if _name_matches(display_name, reference_names):
-                print(f"Google: matched '{display_name}' for query '{query}'")
-                return place_id
-            print(f"Google: skipping '{display_name}' — name doesn't match reference names")
-        print(f"Google: no validated results for '{query}'")
+    if best_match:
+        print(f"Google: best score {best_match.total} < 0.75, rejected")
+    else:
+        print("Google: no candidates found")
     return None
 
 
@@ -572,6 +573,7 @@ async def get_place_details(
 async def fetch_google_reviews(
     nom: str, ville: str, noms_commerciaux: list[str] | None = None,
     telephone: str | None = None, adresse: str | None = None,
+    code_postal: str | None = None,
 ) -> Optional[dict]:
     """
     Orchestre la recherche + détails pour un entrepreneur.
@@ -600,7 +602,7 @@ async def fetch_google_reviews(
 
         # 3. Dernier recours : recherche par nom (text search)
         if not place_id:
-            place_id = await search_place(client, nom, ville, noms_commerciaux=noms_commerciaux)
+            place_id = await search_place(client, nom, ville, noms_commerciaux=noms_commerciaux, code_postal=code_postal)
 
         if not place_id:
             return None
@@ -652,6 +654,7 @@ async def get_google_reviews_for_contractor(
         noms_commerciaux=contractor.noms_secondaires,
         telephone=contractor.telephone,
         adresse=contractor.adresse,
+        code_postal=contractor.code_postal,
     )
 
     if data:
