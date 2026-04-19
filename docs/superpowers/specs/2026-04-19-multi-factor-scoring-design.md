@@ -70,7 +70,7 @@ Up to **10** candidates per Google Text Search query.
 
 ## New Helpers
 
-- `_score_candidate(rbq_name, rbq_ville, rbq_postal, candidate) -> MatchScore` — the multi-factor scorer
+- `_score_candidate(reference_names, rbq_ville, rbq_postal, candidate) -> MatchScore` — the multi-factor scorer. Takes a list of reference names (legal + trade names), uses the best name score among them.
 - `_extract_postal_code(address: str) -> str | None` — extract Canadian postal code from address
 - `_extract_street_number(address: str) -> str | None` — extract street number from address
 - `_is_construction_type(primary_type: str | None) -> bool` — check if primaryType is construction-related
