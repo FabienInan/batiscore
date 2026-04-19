@@ -8,6 +8,7 @@ Retourne la note moyenne et le nombre d'avis pour un entrepreneur.
 Appels : 2 par contractor (search + details). Cache 7j en base.
 """
 import re
+import unicodedata
 from datetime import datetime
 from typing import Optional
 
@@ -19,6 +20,18 @@ from models import Contractor, GoogleReviewsCache
 
 GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1"
 CACHE_TTL_DAYS = 7
+
+# Mots vides à ignorer dans la comparaison de noms
+_STOP_WORDS = {
+    "inc", "ltee", "ltée", "ltd", "enr", "cie", "co", "corp", "sa", "sro", "sep", "css",
+    "senc", "les", "le", "la", "du", "de", "des", "et", "and", "the",
+    "construction", "renovation", "reno", "entreprise",
+    "general", "generale", "specialisee",
+    # Mots de métier — trop génériques pour distinguer 2 entreprises du même domaine
+    "peinture", "plomberie", "electricite", "toiture", "couverture",
+    "maconnerie", "charpente", "excavation", "installation", "vente",
+    "service", "services", "entretien", "entretiens", "residentielle",
+}
 
 # Suffixes juridiques québécois à retirer pour la recherche Google
 _SUFFIX_RE = re.compile(
@@ -44,6 +57,43 @@ def _clean_name(nom: str) -> str:
     return _SUFFIX_RE.sub("", nom).strip()
 
 
+def _normalize_for_compare(s: str) -> str:
+    """Normalise pour comparaison : minuscule, sans accents, sans ponctuation."""
+    s = s.lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[&.,'\-]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _significant_words(s: str) -> set[str]:
+    """Extrait les mots significatifs d'un nom (sans accents, sans stop words, 2+ chars)."""
+    words = _normalize_for_compare(s).split()
+    return {w for w in words if len(w) >= 2 and w not in _STOP_WORDS}
+
+
+def _name_matches(google_name: str, reference_names: list[str]) -> bool:
+    """
+    Vérifie que le nom Google correspond à l'un des noms de référence.
+    Critère : au moins 2 mots significatifs communs, ou 1 mot distinctif
+    (4+ chars, probablement un nom propre ou une marque).
+    """
+    g_words = _significant_words(google_name)
+    if not g_words:
+        return False
+    for ref in reference_names:
+        r_words = _significant_words(ref)
+        common = g_words & r_words
+        if len(common) >= 2:
+            return True
+        if len(common) == 1:
+            word = next(iter(common))
+            if len(word) >= 4:
+                return True
+    return False
+
+
 def _short_name(nom: str) -> str:
     """Retire suffixes + préfixes descriptifs pour un nom ultra-court.
     ex: 'Construction Et Renovation M. Dubeau inc.' → 'M. Dubeau'
@@ -59,10 +109,16 @@ async def search_place(
     """
     Recherche un lieu sur Google Places par nom + ville.
     Essaie plusieurs variantes du nom, du plus spécifique au plus court.
-    Retourne le placeId du premier résultat, ou None.
+    Valide que le nom Google correspond à l'entrepreneur avant de retourner.
+    Retourne le placeId du premier résultat validé, ou None.
     """
     clean = _clean_name(nom)
     short = _short_name(nom)
+
+    # Noms de référence pour validation
+    reference_names = [nom]
+    if noms_commerciaux:
+        reference_names.extend(noms_commerciaux)
 
     # Stratégies de recherche, de la plus spécifique à la plus large
     queries = []
@@ -83,7 +139,7 @@ async def search_place(
             headers={
                 "X-Goog-Api-Key": settings.google_places_api_key,
                 "Content-Type": "application/json",
-                "X-Goog-FieldMask": "places.id",
+                "X-Goog-FieldMask": "places.id,places.displayName",
             },
             json={"textQuery": query},
         )
@@ -91,10 +147,14 @@ async def search_place(
             print(f"Google: HTTP {resp.status_code}")
             continue
         places = resp.json().get("places", [])
-        if places:
-            print(f"Google: found place_id={places[0].get('id')}")
-            return places[0].get("id")
-        print(f"Google: no results")
+        for place in places:
+            place_id = place.get("id")
+            display_name = place.get("displayName", {}).get("text", "")
+            if _name_matches(display_name, reference_names):
+                print(f"Google: matched '{display_name}' for query '{query}'")
+                return place_id
+            print(f"Google: skipping '{display_name}' — no word overlap with reference names")
+        print(f"Google: no validated results for '{query}'")
     return None
 
 
