@@ -27,6 +27,13 @@ export const metadata: Metadata = {
     'comment choisir entrepreneur rénovation',
     'vérifier entrepreneur avant de signer',
   ],
+  icons: {
+    icon: [
+      { url: '/icon', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: '/apple-icon',
+  },
   openGraph: {
     title: 'Batiscore — Vérifiez votre entrepreneur au Québec',
     description: 'Score de fiabilité basé sur RBQ, REQ, OPC, CanLII et SEAO. Ne confiez pas vos travaux à un entrepreneur non vérifié.',
