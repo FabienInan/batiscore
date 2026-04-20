@@ -61,6 +61,7 @@ export function generateMetadata({ params }: { params: { ville: string } }): Met
         locale: 'fr_CA',
         type: 'website',
       },
+      robots: { index: true, follow: true },
     }
   }
 
@@ -83,7 +84,56 @@ export function generateMetadata({ params }: { params: { ville: string } }): Met
       locale: 'fr_CA',
       type: 'website',
     },
+    robots: { index: true, follow: true },
   }
+}
+
+function VilleJsonLd({ data }: { data: VilleData }) {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: `Vérifier un entrepreneur à ${data.nom}`,
+    description: `Vérifiez la fiabilité de votre entrepreneur en construction à ${data.nom}. ${data.nbEntrepreneurs} entrepreneurs couverts dans la région de ${data.region}.`,
+    url: `https://batiscore.ca/verifier-entrepreneur-${data.slug}`,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Batiscore',
+      url: 'https://batiscore.ca',
+    },
+    about: {
+      '@type': 'City',
+      name: data.nom,
+      containedInPlace: {
+        '@type': 'AdministrativeArea',
+        name: data.region,
+      },
+    },
+  }
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+}
+
+function MrcJsonLd({ data }: { data: MrcData }) {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: `Vérifier un entrepreneur dans la ${data.nom}`,
+    description: `Vérifiez la fiabilité de votre entrepreneur en construction dans la ${data.nom}. ${data.nbEntrepreneurs} entrepreneurs couverts dans la région de ${data.region}.`,
+    url: `https://batiscore.ca/verifier-entrepreneur-mrc-${data.slug}`,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Batiscore',
+      url: 'https://batiscore.ca',
+    },
+    about: {
+      '@type': 'AdministrativeArea',
+      name: data.nom,
+      containedInPlace: {
+        '@type': 'AdministrativeArea',
+        name: data.region,
+      },
+    },
+  }
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
 }
 
 function VilleHero({ data }: { data: VilleData }) {
@@ -165,12 +215,13 @@ function MrcVillesList({ data }: { data: MrcData }) {
         </h2>
         <div className="flex flex-wrap gap-2">
           {data.villesPrincipales.map((ville) => (
-            <span
+            <a
               key={ville}
-              className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-medium"
+              href={`/recherche?q=${encodeURIComponent(ville)}`}
+              className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-medium hover:bg-orange-50 hover:text-orange-700 transition-colors"
             >
               {ville}
-            </span>
+            </a>
           ))}
         </div>
       </div>
@@ -188,15 +239,31 @@ function VilleSeoContent({ data }: { data: VilleData }) {
         <div className="prose prose-slate text-slate-600 leading-relaxed space-y-4">
           <p>
             {data.nom} compte plus de {data.nbEntrepreneurs} entrepreneurs détenteurs d&apos;une licence RBQ
-            dans la région de {data.region}. Vérifier votre entrepreneur avant de signer un contrat
-            de rénovation est une étape essentielle pour sécuriser votre investissement.
+            dans la région de {data.region}. Avec une population de {data.population} habitants,
+            la demande en travaux de rénovation et de construction est importante.
+            Vérifier votre entrepreneur avant de signer un contrat
+            est une étape essentielle pour sécuriser votre investissement.
+          </p>
+          <p>
+            Au Québec, tout entrepreneur en construction doit détenir une licence valide de la
+            Régie du bâtiment du Québec (RBQ). À {data.nom}, plusieurs entrepreneurs ont déjà été
+            radiés, suspendus ou ont accumulé des plaintes à l&apos;Office de la protection du
+            consommateur. Certaines entreprises ferment pour échapper à leurs obligations et
+            rouvrent sous un nouveau nom — un phénomène connu sous le nom de{' '}
+            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">société phénix</a>.
           </p>
           <p>
             Notre outil croise les données de la RBQ, du REQ, de l&apos;OPC, de CanLII et du SEAO pour
             vous fournir un score de fiabilité objectif. Vous pouvez vérifier si un entrepreneur à {data.nom}
-            est en règle, s&apos;il a des plaintes déposées, ou s&apos;il présente des{' '}
-            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">connexions à risque avec des entreprises fermées</a>.
+            est en règle, s&apos;il a des plaintes déposées, ou s&apos;il présente des connexions à risque
+            avec des entreprises fermées.
           </p>
+          <h3>Comment vérifier un entrepreneur à {data.nom} en 3 étapes</h3>
+          <ol>
+            <li>Entrez le nom, le numéro RBQ ou le NEQ de l&apos;entrepreneur dans la barre de recherche ci-dessus</li>
+            <li>Consultez le score de fiabilité et les détails du rapport : licence RBQ, statut REQ, plaintes OPC</li>
+            <li>Vérifiez les connexions avec des entreprises fermées pour détecter les sociétés phénix</li>
+          </ol>
           <p>
             Les travaux de rénovation à {data.nom} représentent des investissements importants.
             Une vérification gratuite de 30 secondes peut vous éviter des milliers de dollars de pertes.
@@ -225,11 +292,25 @@ function MrcSeoContent({ data }: { data: MrcData }) {
             pour sécuriser votre investissement.
           </p>
           <p>
+            Au Québec, tout entrepreneur en construction doit détenir une licence valide de la
+            Régie du bâtiment du Québec (RBQ). Dans la {data.nom}, plusieurs entrepreneurs ont déjà été
+            radiés, suspendus ou ont accumulé des plaintes à l&apos;Office de la protection du
+            consommateur. Certaines entreprises ferment pour échapper à leurs obligations et
+            rouvrent sous un nouveau nom — un phénomène connu sous le nom de{' '}
+            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">société phénix</a>.
+          </p>
+          <p>
             Notre outil croise les données de la RBQ, du REQ, de l&apos;OPC, de CanLII et du SEAO pour
             vous fournir un score de fiabilité objectif. Vous pouvez vérifier si un entrepreneur dans la {data.nom}
-            est en règle, s&apos;il a des plaintes déposées, ou s&apos;il présente des{' '}
-            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">connexions à risque avec des entreprises fermées</a>.
+            est en règle, s&apos;il a des plaintes déposées, ou s&apos;il présente des connexions à risque
+            avec des entreprises fermées.
           </p>
+          <h3>Comment vérifier un entrepreneur dans la {data.nom} en 3 étapes</h3>
+          <ol>
+            <li>Entrez le nom, le numéro RBQ ou le NEQ de l&apos;entrepreneur dans la barre de recherche ci-dessus</li>
+            <li>Consultez le score de fiabilité et les détails du rapport : licence RBQ, statut REQ, plaintes OPC</li>
+            <li>Vérifiez les connexions avec des entreprises fermées pour détecter les sociétés phénix</li>
+          </ol>
           <p>
             Les travaux de rénovation dans la {data.nom} représentent des investissements importants.
             Une vérification gratuite de 30 secondes peut vous éviter des milliers de dollars de pertes.
@@ -248,6 +329,7 @@ export default function LocationPage({ params }: { params: { ville: string } }) 
     const data = page.data
     return (
       <main>
+        <VilleJsonLd data={data} />
         <VilleHero data={data} />
         <RisksSection />
         <HowItWorksSection />
@@ -264,6 +346,7 @@ export default function LocationPage({ params }: { params: { ville: string } }) 
   const data = page.data
   return (
     <main>
+      <MrcJsonLd data={data} />
       <MrcHero data={data} />
       <MrcVillesList data={data} />
       <RisksSection />
