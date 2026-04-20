@@ -9,7 +9,7 @@ export function VillesGrid({ currentSlug }: { currentSlug?: string }) {
           Vérifier un entrepreneur dans d&apos;autres villes du Québec
         </h2>
         <p className="text-slate-500 text-sm mb-6">
-          Notre base de données couvre tous les entrepreneurs licenciés RBQ dans 30+ villes québécoises.
+          Notre base de données couvre tous les entrepreneurs licenciés RBQ au Québec.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {VILLES_LIST.filter((v) => v.slug !== currentSlug).map((ville) => (
@@ -22,6 +22,28 @@ export function VillesGrid({ currentSlug }: { currentSlug?: string }) {
                 {ville.nom}
               </span>
               <span className="text-xs text-slate-400 mt-0.5">{ville.nbEntrepreneurs} entrepreneurs</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* MRC links */}
+        <h2 className="text-xl font-bold text-slate-900 mt-8 mb-2">
+          Vérifier un entrepreneur par MRC
+        </h2>
+        <p className="text-slate-500 text-sm mb-6">
+          Couverture régionale par municipalité régionale de comté.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          {MRCS_LIST.map((mrc) => (
+            <Link
+              key={mrc.slug}
+              href={`/verifier-entrepreneur-mrc-${mrc.slug}`}
+              className="group flex flex-col p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
+            >
+              <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 leading-tight">
+                {mrc.nom}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5">{mrc.nbEntrepreneurs} entrepreneurs</span>
             </Link>
           ))}
         </div>
