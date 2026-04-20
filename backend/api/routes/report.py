@@ -3,6 +3,8 @@ from typing import Literal
 from uuid import UUID
 from datetime import date, datetime, timedelta
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,29 +68,42 @@ async def get_report(
         for e in events
     ]
 
-    # Récupérer les plaintes OPC (scraping on-demand avec cache 24h)
-    plaintes_obj = None
-    try:
-        plaintes_obj = await get_opc_plaintes_for_contractor(contractor_id, db)
-    except Exception as e:
-        print(f"OPC: Échec silencieux pour contractor {contractor_id}: {e}")
-        await db.rollback()
+    # Lancer les 3 appels externes en parallèle (OPC, CanLII, Google)
+    async def _fetch_opc():
+        try:
+            return await get_opc_plaintes_for_contractor(contractor_id, db)
+        except Exception as e:
+            print(f"OPC: Échec silencieux pour contractor {contractor_id}: {e}")
+            await db.rollback()
+            return None
 
-    # Extraire les valeurs AVANT tout rollback ultérieur (même pattern que contractor_data)
+    async def _fetch_canlii():
+        try:
+            return await get_litiges_for_contractor(contractor_id, db)
+        except Exception as e:
+            print(f"CanLII: Échec silencieux pour contractor {contractor_id}: {e}")
+            await db.rollback()
+            return []
+
+    async def _fetch_google():
+        try:
+            return await get_google_reviews_for_contractor(contractor_id, db)
+        except Exception as e:
+            print(f"Google: Échec silencieux pour contractor {contractor_id}: {e}")
+            await db.rollback()
+            return None
+
+    plaintes_obj, litiges, google_reviews = await asyncio.gather(
+        _fetch_opc(), _fetch_canlii(), _fetch_google()
+    )
+
+    # Extraire les valeurs des plaintes AVANT tout rollback ultérieur
     plaintes = None
     if plaintes_obj:
         plaintes = SimpleNamespace(
             nb_plaintes=plaintes_obj.nb_plaintes,
             mises_en_garde=plaintes_obj.mises_en_garde,
         )
-
-    # Récupérer les litiges CanLII (API on-demand)
-    try:
-        litiges = await get_litiges_for_contractor(contractor_id, db)
-    except Exception as e:
-        print(f"CanLII: Échec silencieux pour contractor {contractor_id}: {e}")
-        await db.rollback()
-        litiges = []
 
     # Extraire les valeurs des litiges AVANT le scoring (lazy-loading async)
     litiges_data = [
@@ -104,14 +119,6 @@ async def get_report(
         )
         for l in litiges
     ]
-
-    # Récupérer les avis Google (on-demand avec cache 7j)
-    google_reviews = None
-    try:
-        google_reviews = await get_google_reviews_for_contractor(contractor_id, db)
-    except Exception as e:
-        print(f"Google: Échec silencieux pour contractor {contractor_id}: {e}")
-        await db.rollback()
 
     # Récupérer les contrats publics
     contrats_result = await db.execute(
