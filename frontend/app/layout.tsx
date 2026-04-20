@@ -131,6 +131,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
+      <head>
+        <script data-goatcounter="https://batiscore.goatcounter.com/count" async src="//gc.zgo.at/count.js" />
+      </head>
       <body className={`${lexend.variable} font-sans bg-background text-slate-900 antialiased`}>
         <JsonLd />
         <Header />
