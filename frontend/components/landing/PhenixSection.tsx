@@ -46,11 +46,11 @@ export function PhenixSection() {
           <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wider">Score de risque</div>
-                <div className="text-4xl font-black text-red-400">73<span className="text-lg text-slate-500">/100</span></div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider">Score de fiabilité</div>
+                <div className="text-4xl font-black text-red-400">35<span className="text-lg text-slate-500">/100</span></div>
               </div>
               <div className="px-3 py-1 bg-red-500/10 border border-red-500/30 rounded-full text-red-400 text-xs font-bold">
-                Suspicion probable
+                Risque élevé
               </div>
             </div>
 
@@ -60,14 +60,14 @@ export function PhenixSection() {
                   <div className="text-sm font-medium text-white">9385-0162 Québec inc.</div>
                   <div className="text-xs text-slate-400">Radiée — Même téléphone</div>
                 </div>
-                <div className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">+20 pts</div>
+                <div className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">-20 pts</div>
               </div>
               <div className="bg-slate-800 rounded-xl p-3 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-white">Construction ABC inc.</div>
                   <div className="text-xs text-slate-400">Suspendue — Temporalité critique</div>
                 </div>
-                <div className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-1 rounded-lg">+25 pts</div>
+                <div className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">-25 pts</div>
               </div>
             </div>
 
