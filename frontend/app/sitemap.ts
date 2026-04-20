@@ -11,6 +11,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }))
 
+  const mrcPages = MRCS_LIST.map((mrc) => ({
+    url: `${BASE_URL}/verifier-entrepreneur-mrc-${mrc.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }))
+
   return [
     {
       url: BASE_URL,
@@ -31,5 +38,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     ...villePages,
+    ...mrcPages,
   ]
 }
