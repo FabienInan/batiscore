@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { VILLES_LIST } from '@/lib/villes'
+import { VILLES_LIST, MRCS_LIST } from '@/lib/locations'
 
 const BASE_URL = 'https://batiscore.ca'
 

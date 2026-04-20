@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { VILLES } from '@/lib/villes'
+import { VILLES } from '@/lib/locations'
 import { RisksSection } from '@/components/landing/RisksSection'
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection'
 import { SourcesSection } from '@/components/landing/SourcesSection'

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { VILLES_LIST } from '@/lib/villes'
+import { VILLES_LIST, MRCS_LIST } from '@/lib/locations'
 
 export function VillesGrid({ currentSlug }: { currentSlug?: string }) {
   return (
