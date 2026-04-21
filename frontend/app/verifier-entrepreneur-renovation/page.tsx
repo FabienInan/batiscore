@@ -51,10 +51,106 @@ function ArticleJsonLd() {
   )
 }
 
+function HowToJsonLd() {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: 'Comment vérifier un entrepreneur en rénovation au Québec',
+    description: 'Les étapes essentielles pour vérifier la fiabilité d\'un entrepreneur en rénovation avant de signer un contrat.',
+    step: [
+      {
+        '@type': 'HowToStep',
+        position: 1,
+        name: 'Vérifiez la licence RBQ',
+        text: 'La licence doit être valide et active. Une suspension récente est un signal d\'alarme sérieux.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 2,
+        name: 'Vérifiez le statut REQ',
+        text: 'La compagnie doit être active. Une radiation récente suivie d\'une nouvelle incorporation mérite attention.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 3,
+        name: 'Consultez les décisions disciplinaires (CanLII)',
+        text: 'Les décisions du Bureau des régisseurs de la RBQ sont publiques sur CanLII. Elles documentent les manquements graves.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 4,
+        name: 'Cherchez les connexions (téléphone, adresse partagée)',
+        text: 'Vérifiez si l\'entrepreneur partage un téléphone ou une adresse avec des compagnies radiées ou en faillite.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 5,
+        name: 'Consultez l\'OPC',
+        text: 'L\'Office de la protection du consommateur conserve un registre des plaintes déposées contre les entrepreneurs.',
+      },
+    ],
+  }
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
+function FaqJsonLd() {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Est-ce qu\'un entrepreneur peut légalement fermer sa compagnie et en ouvrir une autre ?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Oui, c\'est légal. Un entrepreneur peut tout à fait fermer une entreprise et en créer une nouvelle. Ce que vous souhaitez savoir, c\'est si cette nouvelle compagnie est liée à des difficultés passées — et c\'est précisément ce que notre outil vérifie en croisant téléphone, adresse et nom entre toutes les entreprises.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'La RBQ vérifie-t-elle ces connexions ?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Partiellement. La RBQ peut refuser ou révoquer une licence si les dirigeants d\'une nouvelle entreprise sont associés à d\'anciennes entités ayant eu des manquements graves. Mais des changements de dirigeants nominaux peuvent contourner ces contrôles, et la vérification n\'est pas systématique pour toutes les nouvelles incorporations.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Que faire si je suis victime d\'un entrepreneur malhonnête ?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Déposez une plainte à l\'OPC (Office de la protection du consommateur) et à la RBQ. Pour les constructions neuves, vérifiez si l\'entrepreneur est accrédité par la Garantie de construction résidentielle (GCR). Consultez Éducaloi pour connaître vos recours légaux, notamment la possibilité de lever le voile corporatif pour tenir le dirigeant personneluellement responsable.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Comment savoir si une compagnie vient d\'être incorporée ?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Le Registraire des entreprises du Québec (REQ) indique la date d\'immatriculation de chaque compagnie. Une compagnie incorporée depuis moins de 1-2 ans sans historique vérifiable mérite une vigilance accrue, surtout pour des contrats importants.',
+        },
+      },
+    ],
+  }
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
 export default function ArnaqueEntrepreneurPage() {
   return (
     <>
       <ArticleJsonLd />
+      <HowToJsonLd />
+      <FaqJsonLd />
       <main className="min-h-screen bg-white">
         {/* Hero */}
         <section className="bg-slate-900 py-16">

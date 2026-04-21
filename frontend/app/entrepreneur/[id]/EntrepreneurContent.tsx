@@ -113,6 +113,11 @@ export default function EntrepreneurContent() {
                   Anciennement fermée
                 </Badge>
               )}
+              <div className="mt-4">
+                <a href="/guides/verifier-licence-rbq" className="text-sm text-orange-600 hover:text-orange-700 hover:underline">
+                  En savoir plus sur la licence RBQ →
+                </a>
+              </div>
             </div>
 
             <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-32 ${getScoreBg(contractor.score)}`}>
