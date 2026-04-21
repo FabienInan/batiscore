@@ -86,6 +86,13 @@ export const Header = () => {
           >
             Guide de vérification
           </Link>
+          <Link
+            href="/guides/verifier-licence-rbq"
+            className="text-sm font-medium text-slate-300 hover:text-white py-2.5 transition-colors"
+            onClick={() => setMenuOpen(false)}
+          >
+            Guides
+          </Link>
         </nav>
       )}
     </header>
@@ -96,7 +103,7 @@ export const Footer = () => {
   return (
     <footer className="border-t border-slate-800 bg-slate-900 mt-16 py-10">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -133,6 +140,18 @@ export const Footer = () => {
               <li><Link href="/termes-et-conditions" className="hover:text-slate-300 transition-colors cursor-pointer">Termes et conditions</Link></li>
               <li><Link href="/politique-de-confidentialite" className="hover:text-slate-300 transition-colors cursor-pointer">Politique de confidentialité</Link></li>
               <li><Link href="/contester" className="hover:text-slate-300 transition-colors cursor-pointer">Contester les informations</Link></li>
+            </ul>
+          </div>
+
+          {/* Guides */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Guides</h3>
+            <ul className="space-y-1.5 text-xs text-slate-500">
+              <li><Link href="/guides/verifier-licence-rbq" className="hover:text-slate-300 transition-colors cursor-pointer">Vérifier une licence RBQ</Link></li>
+              <li><Link href="/guides/entrepreneur-sans-licence" className="hover:text-slate-300 transition-colors cursor-pointer">Entrepreneur sans licence</Link></li>
+              <li><Link href="/guides/societe-phenix" className="hover:text-slate-300 transition-colors cursor-pointer">Sociétés phénix</Link></li>
+              <li><Link href="/guides/plainte-opc-entrepreneur" className="hover:text-slate-300 transition-colors cursor-pointer">Plainte à l'OPC</Link></li>
+              <li><Link href="/guides/reclamation-rbq" className="hover:text-slate-300 transition-colors cursor-pointer">Réclamation RBQ</Link></li>
             </ul>
           </div>
         </div>
