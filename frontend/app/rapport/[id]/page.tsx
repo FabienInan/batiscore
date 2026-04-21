@@ -124,6 +124,12 @@ export default function ReportPage() {
       const [reportData, reseauData] = await Promise.all([reportRes.json(), reseauRes.json()])
       setReport(reportData)
       setReseau(reseauData)
+      if (typeof window !== 'undefined' && (window as any).goatcounter) {
+        (window as any).goatcounter.count({
+          path: `/rapport/view/${reportData.contractor.nom_legal}`,
+          title: `Rapport: ${reportData.contractor.nom_legal}`,
+        })
+      }
     } catch (err: any) {
       setError(err.message === 'Load failed' ? 'Impossible de joindre le serveur' : err.message)
     } finally {
