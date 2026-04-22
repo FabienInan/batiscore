@@ -23,6 +23,8 @@ import {
   FileText,
   IdCard,
   Mail,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -116,8 +118,27 @@ export default function ReportPage() {
   const [reseau, setReseau] = useState<Reseau | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(field)
+      setTimeout(() => setCopied(null), 2000)
+    } catch {
+      // Fallback
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      setCopied(field)
+      setTimeout(() => setCopied(null), 2000)
+    }
+  }
 
   useEffect(() => {
     fetchReport()
@@ -286,10 +307,10 @@ export default function ReportPage() {
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen print:min-h-0 print:h-auto">
       {/* Dark hero header */}
-      <section className="bg-slate-900 py-10 lg:py-14">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-500/5 via-transparent to-transparent" aria-hidden="true" />
+      <section className="bg-slate-900 py-10 lg:py-14 print:bg-white print:border-b print:border-slate-200">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-500/5 via-transparent to-transparent print:hidden" aria-hidden="true" />
 
         <div className="relative max-w-3xl mx-auto px-4">
           <div className="flex justify-between items-center mb-8 print:hidden">
@@ -305,12 +326,12 @@ export default function ReportPage() {
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-3">
-              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{c.nom_legal}</h1>
-              <div className="flex flex-wrap gap-2 items-center text-sm text-slate-400">
-                <span className="font-medium text-slate-300">RBQ {c.licence_rbq || 'N/A'}</span>
-                <span className="opacity-30">|</span>
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight print:text-slate-900">{c.nom_legal}</h1>
+              <div className="flex flex-wrap gap-2 items-center text-sm text-slate-400 print:text-slate-600">
+                <span className="font-medium text-slate-300 print:text-slate-700">RBQ {c.licence_rbq || 'N/A'}</span>
+                <span className="opacity-30 print:opacity-50">|</span>
                 <span>NEQ {c.neq || 'N/A'}</span>
-                <span className="opacity-30">|</span>
+                <span className="opacity-30 print:opacity-50">|</span>
                 <span>{c.ville || 'Lieu non spécifié'}</span>
               </div>
               <div className="flex flex-wrap gap-3 pt-2">
@@ -326,7 +347,7 @@ export default function ReportPage() {
                   </Badge>
                 )}
                 {(c.statut_req === 'radié' || c.statut_req === 'faillite') && (
-                  <Badge variant="danger" className="bg-red-600 text-white border-red-500" icon={AlertTriangle}>
+                  <Badge variant="danger" className="bg-red-600 text-white border-red-500 print:bg-red-100 print:text-red-800 print:border-red-200" icon={AlertTriangle}>
                     REQ {c.statut_req === 'faillite' ? 'EN FAILLITE' : 'RADIÉ'}
                   </Badge>
                 )}
@@ -334,16 +355,16 @@ export default function ReportPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 self-start">
-              <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] ${getScoreBg(c.score)}`}>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Niveau de confiance</div>
+              <div className={`flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] ${getScoreBg(c.score)} print:bg-white print:border-slate-200`}>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 print:text-slate-600">Niveau de confiance</div>
                 <div className={`text-4xl font-black ${getScoreColor(c.score)}`}>
                   {c.score ?? '?'}
                 </div>
-                <div className="text-[10px] font-medium text-slate-500 mt-1">{c.score_label}</div>
+                <div className="text-[10px] font-medium text-slate-500 mt-1 print:text-slate-500">{c.score_label}</div>
               </div>
               {report.google_reviews && (
-                <div className="flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] bg-slate-800 border-slate-700">
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Google</div>
+                <div className="flex flex-col items-center p-5 rounded-2xl border min-w-[8rem] bg-slate-800 border-slate-700 print:bg-white print:border-slate-200">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 print:text-slate-600">Google</div>
                   <div className="flex items-center gap-0.5 mb-1">
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star
@@ -353,7 +374,7 @@ export default function ReportPage() {
                       />
                     ))}
                   </div>
-                  <div className="text-sm font-bold text-white">{report.google_reviews.rating.toFixed(1)}</div>
+                  <div className="text-sm font-bold text-white print:text-slate-900">{report.google_reviews.rating.toFixed(1)}</div>
                   <div className="text-[10px] font-medium text-slate-500 mt-0.5">{report.google_reviews.nb_avis} avis</div>
                 </div>
               )}
@@ -447,8 +468,20 @@ export default function ReportPage() {
                   <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={16} /></div>
                   <div>
                     <div className="text-xs text-slate-400 font-medium uppercase">Adresse</div>
-                    <div className="text-sm font-medium text-slate-700">
-                      {[c.adresse, c.ville, c.code_postal].filter(Boolean).join(', ') || 'Non disponible'}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="text-sm font-medium text-slate-700">
+                        {[c.adresse, c.ville, c.code_postal].filter(Boolean).join(', ') || 'Non disponible'}
+                      </div>
+                      {[c.adresse, c.ville, c.code_postal].filter(Boolean).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); copyToClipboard([c.adresse, c.ville, c.code_postal].filter(Boolean).join(', '), 'adresse') }}
+                          className="inline-flex items-center text-slate-400 hover:text-orange-500 transition-colors cursor-pointer p-1 rounded hover:bg-slate-100"
+                          title="Copier l'adresse"
+                        >
+                          {copied === 'adresse' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -456,26 +489,50 @@ export default function ReportPage() {
                   <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Phone size={16} /></div>
                   <div>
                     <div className="text-xs text-slate-400 font-medium uppercase">Téléphone</div>
-                    {c.telephone ? (
-                      <a href={`tel:${c.telephone}`} className="text-sm font-medium text-orange-600 hover:underline">
-                        {c.telephone}
-                      </a>
-                    ) : (
-                      <div className="text-sm font-medium text-slate-700">Non disponible</div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {c.telephone ? (
+                        <>
+                          <a href={`tel:${c.telephone}`} className="text-sm font-medium text-orange-600 hover:underline">
+                            {c.telephone}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(c.telephone!, 'telephone')}
+                            className="inline-flex items-center justify-center w-8 h-8 -ml-1 text-slate-400 hover:text-orange-500 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 relative z-10"
+                            title="Copier le téléphone"
+                          >
+                            {copied === 'telephone' ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-sm font-medium text-slate-700">Non disponible</div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Mail size={16} /></div>
                   <div>
                     <div className="text-xs text-slate-400 font-medium uppercase">Courriel</div>
-                    {c.email ? (
-                      <a href={`mailto:${c.email}`} className="text-sm font-medium text-orange-600 hover:underline">
-                        {c.email}
-                      </a>
-                    ) : (
-                      <div className="text-sm font-medium text-slate-700">Non disponible</div>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {c.email ? (
+                        <>
+                          <a href={`mailto:${c.email}`} className="text-sm font-medium text-orange-600 hover:underline">
+                            {c.email}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); copyToClipboard(c.email!, 'email') }}
+                            className="inline-flex items-center text-slate-400 hover:text-orange-500 transition-colors cursor-pointer p-1 rounded hover:bg-slate-100"
+                            title="Copier le courriel"
+                          >
+                            {copied === 'email' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-sm font-medium text-slate-700">Non disponible</div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {c.noms_secondaires && c.noms_secondaires.length > 0 && (

@@ -26,6 +26,34 @@
   }
 }
 
+/* Print styles — ensure readable output */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a {
+    text-decoration: underline;
+  }
+
+  /* Remove shadows on cards for cleaner print */
+  .shadow-saas,
+  .shadow-saas-hover,
+  .shadow-saas-lg {
+    box-shadow: none !important;
+  }
+
+  /* Make sure hidden print elements don't collapse layout */
+  .print\:hidden {
+    display: none !important;
+  }
+}
+
 @layer components {
   /* Consistent focus ring for keyboard navigation */
   .focus-ring {

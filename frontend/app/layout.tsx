@@ -104,9 +104,9 @@ export default function RootLayout({
       </head>
       <body className={`${lexend.variable} font-sans bg-background text-slate-900 antialiased`}>
         <JsonLd />
-        <Header />
+        <div className="print:hidden"><Header /></div>
         {children}
-        <Footer />
+        <div className="print:hidden"><Footer /></div>
       </body>
     </html>
   )
