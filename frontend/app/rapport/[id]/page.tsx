@@ -300,8 +300,8 @@ export default function ReportPage() {
     '17.1': 'Instrumentation et contrôle',
     '17.2': 'Intercommunication et surveillance',
     'ADM': 'Administration',
-    'GPC': 'Gaz de pétrole comprimé',
-    'GPCCOP': 'Gaz de pétrole comprimé (copropriété)',
+    'GPC': 'Gestion de projets de construction',
+    'GPCCOP': 'Gestion de projets de construction (copropriété)',
     'SEC': 'Sécurité',
     'SECCOP': 'Sécurité (copropriété)',
   }
