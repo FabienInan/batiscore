@@ -196,6 +196,15 @@ export default function ReportPage() {
 
   const c = report.contractor
 
+  const isRbqExpired = c.date_expiration_rbq
+    ? new Date(c.date_expiration_rbq + 'T00:00:00') < new Date(new Date().toDateString())
+    : false
+  const rbqBadgeVariant = c.statut_rbq === 'valide' && !isRbqExpired
+    ? 'success'
+    : c.statut_rbq === 'réouverte'
+      ? 'warning'
+      : 'danger'
+
   const SOURCE_LABELS: Record<string, string> = {
     rbq: 'RBQ',
     rbq_decisions: 'RBQ',
@@ -306,10 +315,10 @@ export default function ReportPage() {
               </div>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Badge
-                  variant={c.statut_rbq === 'valide' ? 'success' : c.statut_rbq === 'réouverte' ? 'warning' : 'danger'}
-                  icon={c.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}
+                  variant={rbqBadgeVariant}
+                  icon={rbqBadgeVariant === 'success' ? ShieldCheck : AlertTriangle}
                 >
-                  Licence RBQ {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
+                  Licence RBQ {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : isRbqExpired ? 'EXPIRÉE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
                 </Badge>
                 {c.statut_rbq === 'réouverte' && (
                   <Badge variant="warning" icon={AlertTriangle}>
@@ -501,10 +510,10 @@ export default function ReportPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Licence RBQ</h3>
                   <Badge
-                    variant={c.statut_rbq === 'valide' ? 'success' : c.statut_rbq === 'réouverte' ? 'warning' : 'danger'}
-                    icon={c.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}
+                    variant={rbqBadgeVariant}
+                    icon={rbqBadgeVariant === 'success' ? ShieldCheck : AlertTriangle}
                   >
-                    {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
+                    {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : isRbqExpired ? 'EXPIRÉE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
                   </Badge>
                 </div>
                 <div className="space-y-3">

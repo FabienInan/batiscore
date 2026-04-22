@@ -17,6 +17,7 @@ interface SearchResult {
   licence_rbq: string | null
   statut_rbq: string | null
   statut_req: string | null
+  rbq_valide: boolean
   score: number | null
   score_label: string | null
   categories: string[]
@@ -171,11 +172,11 @@ function RechercheContent() {
                     </div>
 
                     <div className="flex gap-2 flex-wrap items-center">
-                      {result.statut_rbq === 'valide' ? (
+                      {result.rbq_valide ? (
                         <Badge variant="success" icon={ShieldCheck}>Licence valide</Badge>
                       ) : (
                         <Badge variant="danger" icon={AlertTriangle}>
-                          Licence {result.statut_rbq || 'inconnue'}
+                          Licence {result.statut_rbq === 'valide' ? 'expirée' : (result.statut_rbq || 'inconnue')}
                         </Badge>
                       )}
                       {(result.statut_req === 'radié' || result.statut_req === 'faillite') && (
