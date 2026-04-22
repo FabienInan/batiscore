@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Query, Depends
@@ -98,6 +99,7 @@ async def get_contractor(
 
 
 def contractor_preview(c: Contractor) -> dict:
+    rbq_valide = c.statut_rbq == 'valide' and (c.date_expiration_rbq is None or c.date_expiration_rbq >= date.today())
     return {
         "id": c.id,
         "nom": c.nom_legal,
@@ -106,6 +108,7 @@ def contractor_preview(c: Contractor) -> dict:
         "neq": c.neq,
         "statut_rbq": c.statut_rbq,
         "statut_req": c.statut_req,
+        "rbq_valide": rbq_valide,
         "categories": c.categories_rbq[:3] if c.categories_rbq else [],
         "score": c.score,
         "score_label": score_label(c.score)["label"] if c.score else None,

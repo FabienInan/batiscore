@@ -175,10 +175,15 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
             contractor.nom_normalized = normalize_name(nom)
 
             neq = record.get("NEQ")
-            contractor.neq = normalize_neq(str(neq)) if neq else None
-            # Mettre à jour l'index by_neq si on a un NEQ
-            if contractor.neq:
-                idx.by_neq[contractor.neq] = contractor
+            new_neq = normalize_neq(str(neq)) if neq else None
+            if new_neq:
+                existing_by_neq = idx.by_neq.get(new_neq)
+                if existing_by_neq is not None and existing_by_neq is not contractor:
+                    # NEQ déjà utilisé par un autre contractor — ne pas réassigner
+                    pass
+                else:
+                    contractor.neq = new_neq
+                    idx.by_neq[new_neq] = contractor
 
             statut = str(record.get("Statut de la licence", "")).lower()
             contractor.statut_rbq = statut_map.get(statut, statut) or None
