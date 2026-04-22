@@ -18,6 +18,11 @@ import {
   ArrowLeft,
   Building2,
   Star,
+  Briefcase,
+  Tag,
+  FileText,
+  IdCard,
+  Mail,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -62,11 +67,16 @@ interface Report {
     licence_rbq: string | null
     adresse: string | null
     ville: string | null
+    code_postal: string | null
     telephone: string | null
+    email: string | null
+    forme_juridique: string | null
     statut_rbq: string | null
     statut_req: string | null
     categories_rbq: string[]
+    noms_secondaires: string[] | null
     date_fondation: string | null
+    date_expiration_rbq: string | null
     score: number | null
     score_label: string
     score_breakdown: Array<{ label: string; points: number; type: 'positive' | 'negative' | 'neutral' }>
@@ -388,32 +398,33 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* Informations Générales + Spécialités RBQ */}
+        {/* Fiche d'identité + Registres + Spécialités RBQ */}
         <div className="space-y-8 mb-8">
+          {/* Fiche d'identité */}
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Award size={20} className="text-orange-500" />
-                Informations Générales
+                <IdCard size={20} className="text-orange-500" />
+                Fiche d'identité
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                   Source : RBQ / REQ
                 </span>
               </h2>
             </div>
             <Card className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={16} /></div>
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><FileText size={16} /></div>
                   <div>
-                    <div className="text-xs text-slate-400 font-medium uppercase">Adresse</div>
-                    <div className="text-sm font-medium text-slate-700">{c.adresse || 'Non disponible'}</div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">NEQ</div>
+                    <div className="text-sm font-medium text-slate-700">{c.neq || 'Non disponible'}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Phone size={16} /></div>
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Briefcase size={16} /></div>
                   <div>
-                    <div className="text-xs text-slate-400 font-medium uppercase">Téléphone</div>
-                    <div className="text-sm font-medium text-slate-700">{c.telephone || 'Non disponible'}</div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Forme juridique</div>
+                    <div className="text-sm font-medium text-slate-700">{c.forme_juridique || 'Non disponible'}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -423,14 +434,150 @@ export default function ReportPage() {
                     <div className="text-sm font-medium text-slate-700">{c.date_fondation || 'Non disponible'}</div>
                   </div>
                 </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Adresse</div>
+                    <div className="text-sm font-medium text-slate-700">
+                      {[c.adresse, c.ville, c.code_postal].filter(Boolean).join(', ') || 'Non disponible'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Phone size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Téléphone</div>
+                    {c.telephone ? (
+                      <a href={`tel:${c.telephone}`} className="text-sm font-medium text-orange-600 hover:underline">
+                        {c.telephone}
+                      </a>
+                    ) : (
+                      <div className="text-sm font-medium text-slate-700">Non disponible</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Mail size={16} /></div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Courriel</div>
+                    {c.email ? (
+                      <a href={`mailto:${c.email}`} className="text-sm font-medium text-orange-600 hover:underline">
+                        {c.email}
+                      </a>
+                    ) : (
+                      <div className="text-sm font-medium text-slate-700">Non disponible</div>
+                    )}
+                  </div>
+                </div>
+                {c.noms_secondaires && c.noms_secondaires.length > 0 && (
+                  <div className="flex items-start gap-3 sm:col-span-2 lg:col-span-3">
+                    <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Tag size={16} /></div>
+                    <div>
+                      <div className="text-xs text-slate-400 font-medium uppercase">Noms commerciaux</div>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {c.noms_secondaires.map((nom, i) => (
+                          <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                            {nom}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
+          </section>
+
+          {/* Registres */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck size={20} className="text-orange-500" />
+                Registres
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Licence RBQ</h3>
+                  <Badge
+                    variant={c.statut_rbq === 'valide' ? 'success' : c.statut_rbq === 'réouverte' ? 'warning' : 'danger'}
+                    icon={c.statut_rbq === 'valide' ? ShieldCheck : AlertTriangle}
+                  >
+                    {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
+                  </Badge>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Numéro de licence</div>
+                    <div className="text-sm font-medium text-slate-700">{c.licence_rbq || 'N/A'}</div>
+                  </div>
+                  {c.date_expiration_rbq && (
+                    <div>
+                      <div className="text-xs text-slate-400 font-medium uppercase">Validité</div>
+                      <div className={`text-sm font-medium ${
+                        new Date(c.date_expiration_rbq) < new Date() ? 'text-red-600' :
+                        new Date(c.date_expiration_rbq) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) ? 'text-amber-600' :
+                        'text-emerald-600'
+                      }`}>
+                        {new Date(c.date_expiration_rbq) < new Date() ? 'Expirée le ' : 'Valide jusqu\'au '}
+                        {c.date_expiration_rbq}
+                        {new Date(c.date_expiration_rbq) < new Date() && (
+                          <span className="ml-1 text-xs font-bold text-red-600">⚠ Licence non valide</span>
+                        )}
+                        {new Date(c.date_expiration_rbq) >= new Date() && new Date(c.date_expiration_rbq) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
+                          <span className="ml-1 text-xs font-bold text-amber-600">⚠ Expire bientôt</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Registre REQ</h3>
+                  <Badge
+                    variant={c.statut_req === 'actif' ? 'success' : c.statut_req === 'radié' || c.statut_req === 'faillite' ? 'danger' : 'warning'}
+                    icon={c.statut_req === 'actif' ? ShieldCheck : AlertTriangle}
+                  >
+                    {(c.statut_req || 'inconnu').toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase">Numéro d'entreprise</div>
+                    <div className="text-sm font-medium text-slate-700">{c.neq || 'N/A'}</div>
+                  </div>
+                  {c.statut_req === 'radié' && (
+                    <p className="text-xs text-red-600 leading-relaxed">
+                      Cette entreprise est radiée du Registre des entreprises. Elle n'est plus autorisée à exercer des activités commerciales au Québec.
+                    </p>
+                  )}
+                  {c.statut_req === 'faillite' && (
+                    <p className="text-xs text-red-600 leading-relaxed">
+                      Cette entreprise est en faillite selon le Registre des entreprises.
+                    </p>
+                  )}
+                  {c.neq && (
+                    <a
+                      href={`https://www.registreentreprises.gouv.qc.ca/fr/consulter/entreprise/${c.neq}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-orange-600 font-semibold hover:underline"
+                    >
+                      <ExternalLink size={12} />
+                      Voir sur registreentreprises.gouv.qc.ca
+                    </a>
+                  )}
+                </div>
+              </Card>
+            </div>
           </section>
 
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <ShieldCheck size={20} className="text-orange-500" />
+                <Award size={20} className="text-orange-500" />
                 Spécialités RBQ
               </h2>
             </div>

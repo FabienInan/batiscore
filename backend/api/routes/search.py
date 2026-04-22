@@ -2,7 +2,7 @@ import re
 from typing import Optional
 
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -12,6 +12,11 @@ from scoring.engine import score_label
 
 
 router = APIRouter()
+
+
+def _extract_digits(q: str) -> str:
+    """Extrait uniquement les chiffres d'une chaîne."""
+    return re.sub(r"\D", "", q)
 
 
 @router.get("/search")
@@ -25,25 +30,26 @@ async def search_contractors(
     Retourne max 10 résultats.
     """
     q_normalized = normalize_name(q)
+    query_digits = _extract_digits(q)
 
     # Détection du type de requête
     if re.match(r"^\d{4}-\d{4}-\d{2}$", q):
-        # Format licence RBQ
+        # Format licence RBQ exact
         result = await db.execute(
             select(Contractor).where(Contractor.licence_rbq == q)
         )
         contractors = result.scalars().all()
-    elif re.match(r"^\d{10}$", q):
-        # Format NEQ
+    elif re.match(r"^[\d\s\-\.\(\)\+]+$", q) and len(query_digits) >= 7:
+        # Requête composée uniquement de chiffres + séparateurs téléphoniques
+        # → recherche par téléphone (et potentiellement NEQ si exactement 10 chiffres)
+        phone_digits = query_digits[-10:] if len(query_digits) >= 10 else query_digits
+
+        conditions = [Contractor.telephone == phone_digits]
+        if len(query_digits) == 10:
+            conditions.append(Contractor.neq == query_digits)
+
         result = await db.execute(
-            select(Contractor).where(Contractor.neq == q)
-        )
-        contractors = result.scalars().all()
-    elif re.match(r"^\d{3}[-.]?\d{3}[-.]?\d{4}$", q):
-        # Téléphone
-        phone_clean = re.sub(r"\D", "", q)
-        result = await db.execute(
-            select(Contractor).where(func.replace(Contractor.telephone, "-", "") == phone_clean)
+            select(Contractor).where(or_(*conditions))
         )
         contractors = result.scalars().all()
     else:

@@ -192,6 +192,9 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
             tel = record.get("Numéro de téléphone")
             contractor.telephone = str(tel) if tel else None
 
+            courriel = record.get("Courriel")
+            contractor.email = str(courriel).strip()[:255] if courriel else None
+
             type_licence = record.get("Type de licence")
             contractor.forme_juridique = str(type_licence) if type_licence else None
 
@@ -203,6 +206,14 @@ async def process_rbq_records(records: list, db: AsyncSession) -> int:
                         contractor.date_fondation = date.fromisoformat(date_str[:10])
                     except ValueError:
                         pass
+
+            # Date du paiement annuel → date_expiration_rbq
+            date_exp_str = str(record.get("Date du paiement annuel") or "").strip()
+            if date_exp_str and date_exp_str != "nan":
+                try:
+                    contractor.date_expiration_rbq = date.fromisoformat(date_exp_str[:10])
+                except ValueError:
+                    pass
 
             categories_data = record.get("Catégories et sous-catégories", [])
             categories_list = []

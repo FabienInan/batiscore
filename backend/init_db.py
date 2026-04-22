@@ -11,9 +11,15 @@ async def init_db():
         # Extension nécessaire pour similarity() (recherche floue)
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
-        # Migration: ajout colonne case_id si absente
+        # Migrations schema
         await conn.execute(text(
             "ALTER TABLE rbq_events ADD COLUMN IF NOT EXISTS case_id VARCHAR(100)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE contractors ADD COLUMN IF NOT EXISTS date_expiration_rbq DATE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE contractors ADD COLUMN IF NOT EXISTS email VARCHAR(255)"
         ))
     print("Tables créées avec succès!")
 
