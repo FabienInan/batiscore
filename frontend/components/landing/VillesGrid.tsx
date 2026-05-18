@@ -15,7 +15,7 @@ export function VillesGrid({ currentSlug }: { currentSlug?: string }) {
           {VILLES_LIST.filter((v) => v.slug !== currentSlug).map((ville) => (
             <Link
               key={ville.slug}
-              href={`/verifier-entrepreneur-${ville.slug}`}
+              href={`/verifier-entrepreneur-${ville.slug}/`}
               className="group flex flex-col p-3 rounded-lg border border-slate-100 hover:border-orange-200 hover:bg-orange-50/50 transition-colors"
             >
               <span className="text-sm font-medium text-slate-800 group-hover:text-orange-700 leading-tight">
@@ -37,7 +37,7 @@ export function VillesGrid({ currentSlug }: { currentSlug?: string }) {
           {MRCS_LIST.map((mrc) => (
             <Link
               key={mrc.slug}
-              href={`/verifier-entrepreneur-mrc-${mrc.slug}`}
+              href={`/verifier-entrepreneur-mrc-${mrc.slug}/`}
               className="group flex flex-col p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
             >
               <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 leading-tight">

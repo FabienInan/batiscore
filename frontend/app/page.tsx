@@ -7,6 +7,7 @@ import { FaqSection } from '@/components/landing/FaqSection'
 import { GuidesSection } from '@/components/landing/GuidesSection'
 import { CtaSection } from '@/components/landing/CtaSection'
 import { VillesGrid } from '@/components/landing/VillesGrid'
+import { CategoriesGrid } from '@/components/landing/CategoriesGrid'
 
 function FaqJsonLd() {
   const faqSchema = {
@@ -59,6 +60,7 @@ export default function Home() {
       <PhenixSection />
       <FaqSection />
       <VillesGrid />
+      <CategoriesGrid />
       <GuidesSection />
       <CtaSection />
     </main>

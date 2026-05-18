@@ -10,6 +10,8 @@ import { CtaSection } from '@/components/landing/CtaSection'
 import { SearchBar } from '@/components/landing/SearchBar'
 import { VillesGrid } from '@/components/landing/VillesGrid'
 import { MrcGrid } from '@/components/landing/MrcGrid'
+import { CATEGORIES_LIST } from '@/lib/categories'
+import Link from 'next/link'
 
 const VILLE_PREFIX = 'verifier-entrepreneur-'
 const MRC_PREFIX = 'verifier-entrepreneur-mrc-'
@@ -54,7 +56,7 @@ export function generateMetadata({ params }: { params: { ville: string } }): Met
         `licence RBQ ${data.nom}`,
         `entrepreneur construction ${data.region}`,
       ],
-      alternates: { canonical: `https://batiscore.ca/verifier-entrepreneur-${data.slug}` },
+      alternates: { canonical: `https://batiscore.ca/verifier-entrepreneur-${data.slug}/` },
       openGraph: {
         title: `Vérifier un entrepreneur à ${data.nom} — Batiscore`,
         description: `Vérifiez la fiabilité d'un entrepreneur à ${data.nom} : licence RBQ, statut REQ, plaintes OPC et connexions à risque. ${data.nbEntrepreneurs} entrepreneurs couverts.`,
@@ -77,7 +79,7 @@ export function generateMetadata({ params }: { params: { ville: string } }): Met
       `licence RBQ ${data.region}`,
       `entrepreneur construction ${data.region}`,
     ],
-    alternates: { canonical: `https://batiscore.ca/verifier-entrepreneur-mrc-${data.slug}` },
+    alternates: { canonical: `https://batiscore.ca/verifier-entrepreneur-mrc-${data.slug}/` },
     openGraph: {
       title: `Vérifier un entrepreneur dans la ${data.nom} — Batiscore`,
       description: `Vérifiez la fiabilité d'un entrepreneur dans la ${data.nom} : licence RBQ, statut REQ, plaintes OPC et connexions à risque. ${data.nbEntrepreneurs} entrepreneurs couverts.`,
@@ -321,6 +323,34 @@ function MrcSeoContent({ data }: { data: MrcData }) {
   )
 }
 
+function VilleCategoriesLinks({ villeSlug }: { villeSlug: string }) {
+  return (
+    <section className="bg-white py-12 border-t border-slate-100">
+      <div className="max-w-5xl mx-auto px-4">
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          Vérifier par type de travail
+        </h2>
+        <p className="text-slate-500 text-sm mb-6">
+          Recherchez un entrepreneur selon sa spécialité et sa licence RBQ.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          {CATEGORIES_LIST.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/categories/${cat.slug}/${villeSlug}/`}
+              className="group flex flex-col p-3 rounded-lg border border-slate-100 hover:border-orange-200 hover:bg-orange-50/50 transition-colors"
+            >
+              <span className="text-sm font-medium text-slate-800 group-hover:text-orange-700 leading-tight">
+                {cat.nom}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function LocationPage({ params }: { params: { ville: string } }) {
   const page = getPageData(params.ville)
   if (!page) notFound()
@@ -338,6 +368,7 @@ export default function LocationPage({ params }: { params: { ville: string } }) 
         <FaqSection />
         <CtaSection />
         <VilleSeoContent data={data} />
+        <VilleCategoriesLinks villeSlug={data.slug} />
         <VillesGrid currentSlug={data.slug} />
       </main>
     )
