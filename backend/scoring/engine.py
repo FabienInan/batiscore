@@ -46,8 +46,12 @@ def calculate_score_breakdown(contractor: Contractor, events: List[RBQEvent], pl
             pts = -min(plaintes.nb_plaintes * 5, 15)
             factors.append({"label": f"{plaintes.nb_plaintes} plainte(s) OPC", "points": pts, "type": "negative"})
 
+    # Éviter le double comptage CanLII dans le breakdown
+    rbq_decision_types = {e.event_type for e in events if e.source in ("rbq", "rbq_decisions", "rbq_pdf_reclamations", "rbq_pdf_indemnites")}
     for l in litiges:
         if l.source == "canlii":
+            if l.type_litige in rbq_decision_types:
+                continue
             if l.type_litige == "decision_annulation":
                 factors.append({"label": "Décision d'annulation de licence (CanLII)", "points": -35, "type": "negative"})
             elif l.type_litige == "decision_suspension":
@@ -62,9 +66,6 @@ def calculate_score_breakdown(contractor: Contractor, events: List[RBQEvent], pl
         pts = -min(len(condamnations) * 8, 25)
         factors.append({"label": f"{len(condamnations)} condamnation(s) judiciaire(s)", "points": pts, "type": "negative"})
 
-    if contractor.statut_req == "actif":
-        factors.append({"label": "Immatriculé au REQ", "points": 5, "type": "positive"})
-
     if contractor.date_fondation:
         from datetime import date
         age_ans = (date.today() - contractor.date_fondation).days / 365
@@ -77,8 +78,8 @@ def calculate_score_breakdown(contractor: Contractor, events: List[RBQEvent], pl
         else:
             factors.append({"label": f"Entreprise récente (< 2 ans)", "points": 0, "type": "neutral"})
 
-    if nb_contrats > 0:
-        factors.append({"label": "Contrats publics SEAO", "points": 10, "type": "positive"})
+    if nb_contrats >= 3:
+        factors.append({"label": "Contrats publics SEAO", "points": 5, "type": "positive"})
 
     return factors
 
@@ -87,15 +88,14 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
     """
     Calcule le score de fiabilité d'un entrepreneur (0-100).
 
-    Score de base: 70 (licence valide, aucun incident connu)
+    Score de base: 75 (licence valide, REQ actif, aucun incident connu)
     Être jeune n'est pas une pénalité — l'ancienneté est un bonus.
 
     Bonus:
-      - Immatriculé REQ actif: +5
       - Ancienneté 2–5 ans: +5
       - Ancienneté 5–10 ans: +10
       - Ancienneté > 10 ans: +15
-      - Contrats publics SEAO: +10
+      - Contrats publics SEAO (≥3 ou >100k$): +5
 
     Déductions:
       - Licence suspendue/révoquée: -50
@@ -109,7 +109,7 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
       - Plainte OPC: -5 chacune (max -15)
       - Litige condamné: -8 chacun (max -25)
     """
-    score = 70
+    score = 75
 
     # === DÉDUCTIONS — incidents actifs ===
 
@@ -153,9 +153,15 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
             score -= 15
         score -= min(plaintes.nb_plaintes * 5, 15)
 
-    # Litiges CanLII — décisions Bureau des régisseurs (sévérité par type)
+    # Éviter le double comptage CanLII / événements RBQ
+    rbq_decision_types = {e.event_type for e in events if e.source in ("rbq", "rbq_decisions", "rbq_pdf_reclamations", "rbq_pdf_indemnites")}
+
+    # Litiges CanLII — décisions Bureau des régisseurs (évite le double comptage)
     for l in litiges:
         if l.source == "canlii":
+            # Si ce type de décision est déjà compté dans les événements RBQ, on skip
+            if l.type_litige in rbq_decision_types:
+                continue
             if l.type_litige == "decision_annulation":
                 score -= 35
             elif l.type_litige == "decision_suspension":
@@ -171,10 +177,6 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
 
     # === BONUS — signaux positifs ===
 
-    # Immatriculé REQ actif
-    if contractor.statut_req == "actif":
-        score += 5
-
     # Ancienneté (bonus seulement, pas de pénalité pour les jeunes entreprises)
     if contractor.date_fondation:
         age_ans = (date.today() - contractor.date_fondation).days / 365
@@ -186,9 +188,9 @@ def calculate_score(contractor: Contractor, events: List[RBQEvent], plaintes: OP
         elif age_ans >= 2:
             score += 5
 
-    # Contrats publics SEAO
-    if nb_contrats > 0:
-        score += 10
+    # Contrats publics SEAO — bonus seulement si ≥3 contrats
+    if nb_contrats >= 3:
+        score += 5
 
     return max(0, min(100, score))
 

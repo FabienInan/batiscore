@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /recherche?q=*
+Disallow: /contester
+Disallow: /termes-et-conditions
+Disallow: /politique-de-confidentialite
+
+Sitemap: https://batiscore.ca/sitemap.xml

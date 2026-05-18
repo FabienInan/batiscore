@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: true },
+  robots: { index: true, follow: true },
 }
 
 export default function RapportLayout({ children }: { children: React.ReactNode }) {
