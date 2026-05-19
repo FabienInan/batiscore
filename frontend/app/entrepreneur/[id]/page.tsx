@@ -16,7 +16,7 @@ interface ContractorData {
 
 async function getContractor(id: string): Promise<ContractorData | null> {
   try {
-    const res = await fetch(`${API_URL}/api/contractor/${id}`, { next: { revalidate: 3600 } })
+    const res = await fetch(`${API_URL}/api/contractor/${id}`, { cache: 'no-store' })
     if (!res.ok) return null
     return await res.json()
   } catch {

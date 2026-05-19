@@ -24,7 +24,7 @@ interface FullReport {
 
 async function getReport(id: string): Promise<FullReport | null> {
   try {
-    const res = await fetch(`${API}/api/report/${id}`, { next: { revalidate: 3600 } })
+    const res = await fetch(`${API}/api/report/${id}`, { cache: 'no-store' })
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -34,7 +34,7 @@ async function getReport(id: string): Promise<FullReport | null> {
 
 async function getReseau(id: string): Promise<unknown | null> {
   try {
-    const res = await fetch(`${API}/api/report/${id}/reseau`, { next: { revalidate: 3600 } })
+    const res = await fetch(`${API}/api/report/${id}/reseau`, { cache: 'no-store' })
     if (!res.ok) return null
     return await res.json()
   } catch {
