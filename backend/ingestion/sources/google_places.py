@@ -18,12 +18,22 @@ from rapidfuzz import fuzz
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
-from models import Contractor, GoogleReviewsCache
+from models import Contractor
 
 GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1"
 GOOGLE_MAPS_BASE = "https://maps.googleapis.com/maps/api/place"
 GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode"
 CACHE_TTL_DAYS = 7
+
+
+def _log_google_http_error(resp: httpx.Response, context: str) -> None:
+    """Log succinct context when Google API returns non-200."""
+    body_preview = ""
+    try:
+        body_preview = resp.text[:300].replace("\n", " ")
+    except Exception:
+        body_preview = "<body unavailable>"
+    print(f"Google: {context} HTTP {resp.status_code} body={body_preview}")
 
 # Codes régionaux québécois valides
 _QC_AREA_CODES = {"418", "431", "450", "468", "514", "579", "581", "819", "873"}
@@ -278,7 +288,7 @@ async def search_place_by_phone(
         },
     )
     if resp.status_code != 200:
-        print(f"Google: phone search HTTP {resp.status_code}")
+        _log_google_http_error(resp, "phone search")
         return None
     data = resp.json()
     candidates = data.get("candidates", [])
@@ -363,7 +373,7 @@ async def search_place_by_address(
         },
     )
     if geo_resp.status_code != 200:
-        print(f"Google: geocode HTTP {geo_resp.status_code}")
+        _log_google_http_error(geo_resp, "geocode")
         return None
     geo_data = geo_resp.json()
     if not geo_data.get("results"):
@@ -392,7 +402,7 @@ async def search_place_by_address(
         },
     )
     if nearby_resp.status_code != 200:
-        print(f"Google: nearby HTTP {nearby_resp.status_code}")
+        _log_google_http_error(nearby_resp, "nearby search")
         return None
     nearby_data = nearby_resp.json()
     candidates = nearby_data.get("results", [])
@@ -476,7 +486,7 @@ async def search_place(
             json={"textQuery": query},
         )
         if resp.status_code != 200:
-            print(f"Google: HTTP {resp.status_code}")
+            _log_google_http_error(resp, f"searchText query={query}")
             continue
         places = resp.json().get("places", [])
         for place in places:
@@ -517,6 +527,7 @@ async def get_place_details(
         },
     )
     if resp.status_code != 200:
+        _log_google_http_error(resp, f"place details place_id={place_id}")
         return None
     data = resp.json()
     rating = data.get("rating")
@@ -537,10 +548,12 @@ async def fetch_google_reviews(
     Retourne {"place_id": str, "rating": float, "nb_avis": int} ou None.
     """
     if not settings.google_places_api_key:
+        print("Google: GOOGLE_PLACES_API_KEY manquant ou vide")
         return None
 
     # Noms à numéro (ex: "9388-3346 Québec inc.") — pas assez d'info pour matcher
     if _is_number_name(nom) and not noms_commerciaux:
+        print(f"Google: skip nom numerique sans nom commercial ({nom})")
         return None
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -590,27 +603,10 @@ async def get_google_reviews_for_contractor(
     contractor = result.scalar_one_or_none()
 
     if not contractor:
+        print(f"Google: contractor introuvable id={contractor_id}")
         return None
 
-    # Vérifier le cache
-    cache_result = await db.execute(
-        select(GoogleReviewsCache).where(
-            GoogleReviewsCache.contractor_id == contractor_id
-        )
-    )
-    cached = cache_result.scalar_one_or_none()
-
-    if cached and cached.fetched_at:
-        age = (datetime.utcnow() - cached.fetched_at).days
-        # Cache vide (pas de match) : réessayer après 1 jour
-        # Cache avec données : valable 7 jours
-        ttl = 1 if cached.rating is None else CACHE_TTL_DAYS
-        if age < ttl:
-            if cached.rating is not None:
-                return {"rating": cached.rating, "nb_avis": cached.nb_avis or 0}
-            return None
-
-    # Fetch depuis l'API
+    # Cache backend désactivé: fetch live à chaque appel
     data = await fetch_google_reviews(
         contractor.nom_legal, contractor.ville or "",
         noms_commerciaux=contractor.noms_secondaires,
@@ -620,38 +616,6 @@ async def get_google_reviews_for_contractor(
     )
 
     if data:
-        if cached:
-            cached.place_id = data["place_id"]
-            cached.rating = data["rating"]
-            cached.nb_avis = data["nb_avis"]
-            cached.fetched_at = datetime.utcnow()
-        else:
-            db.add(GoogleReviewsCache(
-                contractor_id=contractor_id,
-                place_id=data["place_id"],
-                rating=data["rating"],
-                nb_avis=data["nb_avis"],
-            ))
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
         return {"rating": data["rating"], "nb_avis": data["nb_avis"]}
 
-    # Pas de match Google — enregistrer un cache vide pour ne pas ré-essayer
-    if cached:
-        cached.rating = None
-        cached.nb_avis = None
-        cached.fetched_at = datetime.utcnow()
-    else:
-        db.add(GoogleReviewsCache(
-            contractor_id=contractor_id,
-            place_id=None,
-            rating=None,
-            nb_avis=None,
-        ))
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
     return None

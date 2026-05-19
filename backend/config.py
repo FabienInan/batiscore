@@ -1,7 +1,15 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=str(ENV_PATH), extra="ignore")
+
     # Database
     database_url: str = "postgresql+asyncpg://dev:dev@localhost:5432/rbq_app"
 
@@ -55,10 +63,5 @@ class Settings(BaseSettings):
     # CanLII — Jugements (URLs fonctionnelles)
     canlii_base_url: str = "https://api.canlii.org/v1"
     canlii_site_url: str = "https://www.canlii.org/fr/qc/"
-
-    class Config:
-        env_file = "../.env"
-        extra = "ignore"
-
 
 settings = Settings()
