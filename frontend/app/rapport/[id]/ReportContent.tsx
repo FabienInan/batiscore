@@ -24,6 +24,7 @@ import {
   Mail,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -112,6 +113,7 @@ interface Report {
 
 export default function ReportContent({ report, reseau }: { report: Report; reseau: Reseau | null }) {
   const [copied, setCopied] = useState<string | null>(null)
+  const [navigatingId, setNavigatingId] = useState<number | null>(null)
 
   const c = report.contractor
 
@@ -832,16 +834,24 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
             )}
 
             <div className="space-y-2">
-              {reseau.entreprises.map((e) => (
-                <Link
-                  key={e.id}
-                  href={`/rapport/${e.id}`}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md cursor-pointer ${
-                    e.alerte
-                      ? 'bg-red-50 border-red-200 hover:border-red-400'
-                      : 'bg-white border-slate-100 hover:border-orange-300/50'
-                  }`}
-                >
+              {reseau.entreprises.map((e) => {
+                const isNavigating = navigatingId === e.id
+                return (
+                  <Link
+                    key={e.id}
+                    href={`/rapport/${e.id}`}
+                    onClick={() => setNavigatingId(e.id)}
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md cursor-pointer relative ${
+                      e.alerte
+                        ? 'bg-red-50 border-red-200 hover:border-red-400'
+                        : 'bg-white border-slate-100 hover:border-orange-300/50'
+                    } ${isNavigating ? 'pointer-events-none' : ''}`}
+                  >
+                    {isNavigating && (
+                      <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
+                        <Loader2 size={24} className="text-orange-500 animate-spin" />
+                      </div>
+                    )}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${
                       e.alerte ? 'bg-red-500' :
@@ -905,7 +915,8 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
                     <ExternalLink size={14} className="text-slate-300" />
                   </div>
                 </Link>
-              ))}
+              )}
+              )}
             </div>
           </section>
         )}

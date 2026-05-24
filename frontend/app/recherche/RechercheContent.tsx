@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, ShieldCheck, AlertTriangle, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Search, MapPin, ShieldCheck, AlertTriangle, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -28,6 +28,7 @@ export default function RechercheContent() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [navigatingId, setNavigatingId] = useState<number | null>(null)
 
   useEffect(() => {
     if (query) {
@@ -148,62 +149,71 @@ export default function RechercheContent() {
 
         {!loading && !error && results.length > 0 && (
           <div className="grid grid-cols-1 gap-4">
-            {results.map((result) => (
-              <Link
-                key={result.id}
-                href={`/rapport/${result.id}`}
-                className="group block bg-white p-6 rounded-xl shadow-saas border border-slate-100 hover:border-orange-300/50 hover:shadow-saas-hover transition-all duration-300 ease-out hover:scale-[1.01] cursor-pointer"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                        {result.nom}
-                      </h2>
-                      <ChevronRight size={16} className="text-slate-300 group-hover:text-orange-500 transition-colors" />
+            {results.map((result) => {
+              const isNavigating = navigatingId === result.id
+              return (
+                <Link
+                  key={result.id}
+                  href={`/rapport/${result.id}`}
+                  onClick={() => setNavigatingId(result.id)}
+                  className={`group block bg-white p-6 rounded-xl shadow-saas border border-slate-100 hover:border-orange-300/50 hover:shadow-saas-hover transition-all duration-300 ease-out hover:scale-[1.01] cursor-pointer relative ${isNavigating ? 'pointer-events-none' : ''}`}
+                >
+                  {isNavigating && (
+                    <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
+                      <Loader2 size={28} className="text-orange-500 animate-spin" />
                     </div>
-
-                    <div className="flex items-center gap-1 text-sm text-slate-500">
-                      <MapPin size={14} className="text-slate-400" />
-                      {result.ville || 'Ville non spécifiée'}
-                      <span className="mx-2 opacity-30">|</span>
-                      <span className="font-medium text-slate-700">RBQ {result.licence_rbq || 'N/A'}</span>
-                    </div>
-
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {result.rbq_valide ? (
-                        <Badge variant="success" icon={ShieldCheck}>Licence valide</Badge>
-                      ) : (
-                        <Badge variant="danger" icon={AlertTriangle}>
-                          Licence {result.statut_rbq === 'valide' ? 'expirée' : (result.statut_rbq || 'inconnue')}
-                        </Badge>
-                      )}
-                      {(result.statut_req === 'radié' || result.statut_req === 'faillite') && (
-                        <Badge variant="danger" className="bg-red-600 text-white border-red-500" icon={AlertTriangle}>
-                          REQ {result.statut_req === 'faillite' ? 'en faillite' : 'radié'}
-                        </Badge>
-                      )}
-                      {result.categories && result.categories.length > 0 && result.categories.slice(0, 3).map((cat, i) => (
-                        <Badge key={i} variant="neutral">{cat}</Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2 ml-4 shrink-0">
-                    {result.score !== null && (
-                      <div className={`px-4 py-2 rounded-lg text-sm font-black border ${getScoreBg(result.score)}`}>
-                        {result.score}<span className="font-normal opacity-50">/100</span>
+                  )}
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                          {result.nom}
+                        </h2>
+                        <ChevronRight size={16} className="text-slate-300 group-hover:text-orange-500 transition-colors" />
                       </div>
-                    )}
-                    {result.score_label && (
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                        {result.score_label}
-                      </span>
-                    )}
+
+                      <div className="flex items-center gap-1 text-sm text-slate-500">
+                        <MapPin size={14} className="text-slate-400" />
+                        {result.ville || 'Ville non spécifiée'}
+                        <span className="mx-2 opacity-30">|</span>
+                        <span className="font-medium text-slate-700">RBQ {result.licence_rbq || 'N/A'}</span>
+                      </div>
+
+                      <div className="flex gap-2 flex-wrap items-center">
+                        {result.rbq_valide ? (
+                          <Badge variant="success" icon={ShieldCheck}>Licence valide</Badge>
+                        ) : (
+                          <Badge variant="danger" icon={AlertTriangle}>
+                            Licence {result.statut_rbq === 'valide' ? 'expirée' : (result.statut_rbq || 'inconnue')}
+                          </Badge>
+                        )}
+                        {(result.statut_req === 'radié' || result.statut_req === 'faillite') && (
+                          <Badge variant="danger" className="bg-red-600 text-white border-red-500" icon={AlertTriangle}>
+                            REQ {result.statut_req === 'faillite' ? 'en faillite' : 'radié'}
+                          </Badge>
+                        )}
+                        {result.categories && result.categories.length > 0 && result.categories.slice(0, 3).map((cat, i) => (
+                          <Badge key={i} variant="neutral">{cat}</Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2 ml-4 shrink-0">
+                      {result.score !== null && (
+                        <div className={`px-4 py-2 rounded-lg text-sm font-black border ${getScoreBg(result.score)}`}>
+                          {result.score}<span className="font-normal opacity-50">/100</span>
+                        </div>
+                      )}
+                      {result.score_label && (
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                          {result.score_label}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>
