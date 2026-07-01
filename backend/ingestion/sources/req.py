@@ -1,8 +1,10 @@
 """
 Ingestion du Registre des entreprises du Québec (REQ).
 
-Fichier local requis : backend/data/req.zip
-Télécharger avec :
+Fichier local : backend/data/req.zip
+Source: https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises
+Note: le téléchargement automatique est souvent bloqué par Cloudflare. En cas
+      d'échec, télécharger manuellement :
   wget -O backend/data/req.zip \
     "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
 
@@ -11,11 +13,15 @@ Jointure: NEQ (clé avec RBQ)
 """
 import io
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
+import httpx
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
+from ingestion.sources.ckan_discovery import find_req_zip_url
 from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor
 
@@ -26,24 +32,82 @@ REQ_DOWNLOAD_URL = (
     "/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
 )
 
+# Âge maximal du fichier local avant rafraîchissement automatique (en jours)
+REQ_MAX_AGE_DAYS = 45
+
 
 async def ingest_req(db: AsyncSession) -> int:
     """
-    Ingère le fichier REQ depuis un fichier local obligatoire.
-
-    Télécharger manuellement avant de lancer l'ingestion :
-        wget -O /var/www/batiscore/backend/data/req.zip \\
-          "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
+    Ingère le fichier REQ.
+    Tente d'abord le fichier local, puis le téléchargement si le fichier est
+    absent ou périmé.
     """
-    if not LOCAL_REQ_PATH.exists():
-        print("REQ: Fichier local introuvable.")
-        print(f"REQ: Téléchargez-le manuellement avec :")
-        print(f'  wget -O {LOCAL_REQ_PATH} \\')
-        print(f'    "{REQ_DOWNLOAD_URL}"')
-        return 0
+    local_exists = LOCAL_REQ_PATH.exists()
+    local_stale = False
+    if local_exists:
+        age_days = (datetime.now().timestamp() - LOCAL_REQ_PATH.stat().st_mtime) / 86400
+        local_stale = age_days > REQ_MAX_AGE_DAYS
+        print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo, {age_days:.0f} jours)")
 
-    print(f"REQ: Fichier local trouvé ({LOCAL_REQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
-    return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
+    if not local_exists or local_stale:
+        try:
+            downloaded = await _download_req_zip()
+            if downloaded:
+                print(f"REQ: Fichier local rafraîchi depuis {REQ_DOWNLOAD_URL}")
+        except Exception as e:
+            print(f"REQ: Téléchargement automatique échoué: {e}")
+            if not local_exists:
+                print(f"REQ: Téléchargez-le manuellement avec :")
+                print(f'  wget -O {LOCAL_REQ_PATH} \\')
+                print(f'    "{REQ_DOWNLOAD_URL}"')
+                return 0
+
+    if LOCAL_REQ_PATH.exists():
+        return await ingest_req_from_file(str(LOCAL_REQ_PATH), db)
+
+    print("REQ: Fichier local introuvable.")
+    return 0
+
+
+async def _download_req_zip() -> bool:
+    """Tente de télécharger le ZIP REQ. Retourne True si réussi."""
+    urls_to_try = []
+
+    # 1. Découverte dynamique CKAN (URL la plus à jour)
+    try:
+        ckan_url = await find_req_zip_url()
+        urls_to_try.append(ckan_url)
+    except Exception as e:
+        print(f"REQ: Découverte CKAN échouée - {e}")
+
+    # 2. URL configurée/hardcodée (fallback)
+    if settings.req_download_url:
+        urls_to_try.append(settings.req_download_url)
+    if REQ_DOWNLOAD_URL not in urls_to_try:
+        urls_to_try.append(REQ_DOWNLOAD_URL)
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept": "application/zip,application/octet-stream,*/*",
+    }
+
+    for url in urls_to_try:
+        print(f"REQ: Tentative de téléchargement depuis {url}...")
+        try:
+            async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code != 200:
+                    raise Exception(f"HTTP {resp.status_code}")
+
+                LOCAL_REQ_PATH.parent.mkdir(parents=True, exist_ok=True)
+                with open(LOCAL_REQ_PATH, "wb") as f:
+                    f.write(resp.content)
+                return True
+        except Exception as e:
+            print(f"REQ: Échec pour {url} - {e}")
+            continue
+
+    return False
 
 
 

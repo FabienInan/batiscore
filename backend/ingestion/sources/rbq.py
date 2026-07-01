@@ -2,10 +2,9 @@
 Ingestion du Registre des licences RBQ (Régie du bâtiment du Québec).
 
 Sources (par ordre de priorité):
-1. Fichier local : backend/data/rbq.json  (télécharger manuellement)
-   curl -L -o backend/data/rbq.json "https://web.archive.org/web/20251207002513if_/https://www.donneesquebec.ca/recherche/dataset/755b45d6-7aee-46df-a216-748a0191c79f/resource/5183fdd4-55b1-418c-8a7d-0a70058ed68d/download/rdl01_extractiondonneesouvertes.json"
-2. URL directe donneesquebec.ca (bloquée par Cloudflare)
-3. Fallback Wayback Machine (snapshot 2025-12-07)
+1. Fichier local data/rbq.json (rafraîchi automatiquement si >30 jours)
+2. URL directe donneesquebec.ca (fonctionnelle)
+3. Fallback Wayback Machine
 
 Format: JSON
 Colonnes: Numéro de licence, Statut de la licence, Nom de l'intervenant, NEQ, Municipalité, Catégories et sous-catégories
@@ -13,7 +12,7 @@ Colonnes: Numéro de licence, Statut de la licence, Nom de l'intervenant, NEQ, M
 import io
 import json
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import httpx
@@ -23,9 +22,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from models import Contractor
 from ingestion.transforms.normalize import normalize_name, normalize_neq, normalize_licence_rbq, ContractorIndex
+from ingestion.sources.ckan_discovery import find_rbq_json_url
 
 # Chemin du fichier local (relatif à ce fichier)
 LOCAL_RBQ_PATH = Path(__file__).parent.parent.parent / "data" / "rbq.json"
+
+# Âge maximal du fichier local avant rafraîchissement automatique (en jours)
+RBQ_MAX_AGE_DAYS = 30
 
 
 async def ingest_rbq(db: AsyncSession):
@@ -33,19 +36,39 @@ async def ingest_rbq(db: AsyncSession):
     Ingère le fichier des licences RBQ.
     Priorité: 1) fichier local data/rbq.json, 2) URL directe, 3) Wayback Machine
     """
-    # 1. Fichier local (le plus fiable)
-    if LOCAL_RBQ_PATH.exists():
-        print(f"RBQ: Fichier local trouvé ({LOCAL_RBQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
+    local_exists = LOCAL_RBQ_PATH.exists()
+    local_stale = False
+    if local_exists:
+        age_days = (datetime.now().timestamp() - LOCAL_RBQ_PATH.stat().st_mtime) / 86400
+        local_stale = age_days > RBQ_MAX_AGE_DAYS
+        print(f"RBQ: Fichier local trouvé ({LOCAL_RBQ_PATH.stat().st_size / 1024 / 1024:.1f} Mo, {age_days:.0f} jours)")
+
+    # 1. Fichier local récent (le plus fiable)
+    if local_exists and not local_stale:
         return await ingest_rbq_from_file(LOCAL_RBQ_PATH, db)
 
-    print("RBQ: Pas de fichier local, tentative de téléchargement...")
-    print(f"RBQ: (Pour éviter ça: curl -L -o {LOCAL_RBQ_PATH} '<URL_WAYBACK>')")
+    # 2. Découverte dynamique CKAN, puis URL configurée, puis Wayback Machine
+    if not local_exists:
+        print("RBQ: Pas de fichier local, tentative de téléchargement...")
+    else:
+        print(f"RBQ: Fichier local périmé (>{RBQ_MAX_AGE_DAYS} jours), tentative de rafraîchissement...")
 
-    # 2. URL directe puis Wayback Machine
-    urls_to_try = [
-        settings.rbq_json_url,
-        f"{settings.rbq_wayback_prefix}{settings.rbq_json_url}",
-    ]
+    urls_to_try = []
+
+    # a) Découverte CKAN (URL à jour)
+    try:
+        ckan_url = await find_rbq_json_url()
+        urls_to_try.append(ckan_url)
+    except Exception as e:
+        print(f"RBQ: Découverte CKAN échouée - {e}")
+
+    # b) URL configurée en dur (fallback)
+    if settings.rbq_json_url:
+        urls_to_try.append(settings.rbq_json_url)
+
+    # c) Wayback Machine (dernier recours)
+    if settings.rbq_wayback_prefix and settings.rbq_json_url:
+        urls_to_try.append(f"{settings.rbq_wayback_prefix}{settings.rbq_json_url}")
 
     for url in urls_to_try:
         try:
@@ -56,6 +79,11 @@ async def ingest_rbq(db: AsyncSession):
         except Exception as e:
             print(f"RBQ: Échec - {e}")
             continue
+
+    # Fallback sur le fichier local périmé si le téléchargement échoue
+    if local_exists:
+        print("RBQ: Téléchargement échoué, utilisation du fichier local périmé")
+        return await ingest_rbq_from_file(LOCAL_RBQ_PATH, db)
 
     print("RBQ: Impossible de charger le fichier. Placez rbq.json dans backend/data/")
     return 0
@@ -98,6 +126,12 @@ async def ingest_rbq_from_url(url: str, db: AsyncSession) -> int:
         body = resp.text.strip()
         if not (body.startswith("{") or body.startswith("[")):
             raise Exception(f"Contenu non-JSON (commence par: {body[:60]!r})")
+
+        # Sauvegarder le fichier téléchargé pour les prochaines exécutions
+        LOCAL_RBQ_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(LOCAL_RBQ_PATH, "w", encoding="utf-8") as f:
+            f.write(body)
+        print(f"RBQ: Fichier sauvegardé dans {LOCAL_RBQ_PATH}")
 
         try:
             data = json.loads(body)

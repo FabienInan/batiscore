@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import search, report, webhook
+from config import settings
 from database import engine, Base
 import models  # assure que tous les modèles sont enregistrés avant create_all
 
@@ -13,8 +14,19 @@ async def lifespan(app: FastAPI):
     # Startup: créer les tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Démarrer le scheduler d'ingestion si activé
+    scheduler = None
+    if settings.enable_scheduler:
+        from ingestion.scheduler import start_scheduler
+        scheduler = start_scheduler()
+
     yield
+
     # Shutdown
+    if scheduler:
+        from ingestion.scheduler import stop_scheduler
+        stop_scheduler()
 
 
 app = FastAPI(

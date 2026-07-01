@@ -2,40 +2,85 @@
 Ingestion des données SEAO (appels d'offres publics).
 
 Sources (par ordre de priorité):
-1. Fichier local : backend/data/seao.json  (télécharger manuellement)
-   Le fichier JSON est publié hebdomadairement sur donneesquebec.ca
-   (aucun snapshot Wayback disponible — téléchargement manuel requis)
+1. Fichier local : backend/data/seao.json
+2. Téléchargement automatique du dernier fichier mensuel depuis le Portail du
+   gouvernement ouvert du Canada (API CKAN).
 
 Site officiel: https://seao.gouv.qc.ca/
 Signal utilisé: contrats publics gagnés → +5 points de crédibilité
 """
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ingestion.sources.ckan_discovery import find_seao_json_url
 from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor, SEAOContract
 
 LOCAL_SEAO_PATH = Path(__file__).parent.parent.parent / "data" / "seao.json"
 
+# Âge maximal du fichier local avant qu'on essaie de le rafraîchir (en jours)
+SEAO_MAX_AGE_DAYS = 45
+
 
 async def ingest_seao(db: AsyncSession) -> int:
     """
     Ingère les contrats SEAO.
-    Priorité: fichier local data/seao.json
+    Priorité: 1) fichier local data/seao.json, 2) téléchargement auto du dernier mensuel.
     """
+    local_exists = LOCAL_SEAO_PATH.exists()
+    local_stale = False
+    if local_exists:
+        age_days = (datetime.now().timestamp() - LOCAL_SEAO_PATH.stat().st_mtime) / 86400
+        local_stale = age_days > SEAO_MAX_AGE_DAYS
+        print(f"SEAO: Fichier local trouvé ({LOCAL_SEAO_PATH.stat().st_size / 1024 / 1024:.1f} Mo, {age_days:.0f} jours)")
+
+    if not local_exists or local_stale:
+        try:
+            downloaded = await _download_latest_seao_monthly()
+            if downloaded:
+                print(f"SEAO: Fichier local rafraîchi depuis {downloaded}")
+        except Exception as e:
+            print(f"SEAO: Échec du téléchargement automatique: {e}")
+            if not local_exists:
+                print(f"SEAO: Placez manuellement le fichier JSON dans {LOCAL_SEAO_PATH}")
+                return 0
+
     if LOCAL_SEAO_PATH.exists():
-        print(f"SEAO: Fichier local trouvé ({LOCAL_SEAO_PATH.stat().st_size / 1024 / 1024:.1f} Mo)")
         return await ingest_seao_from_file(str(LOCAL_SEAO_PATH), db)
 
     print("SEAO: Pas de fichier local disponible.")
-    print(f"SEAO: Téléchargez le fichier JSON et placez-le dans {LOCAL_SEAO_PATH}")
-    print("SEAO: Source: https://seao.gouv.qc.ca/ ou donneesquebec.ca")
     return 0
+
+
+async def _download_latest_seao_monthly() -> Optional[str]:
+    """
+    Découvre le dernier fichier mensuel via CKAN et le télécharge.
+    Retourne l'URL téléchargée ou None.
+    """
+    print("SEAO: Recherche du dernier fichier mensuel via CKAN...")
+    download_url = await find_seao_json_url(prefer_monthly=True)
+    print(f"SEAO: Téléchargement depuis {download_url}")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
+        resp = await client.get(download_url, headers=headers)
+        if resp.status_code != 200:
+            raise Exception(f"Download HTTP {resp.status_code}")
+
+        LOCAL_SEAO_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(LOCAL_SEAO_PATH, "wb") as f:
+            f.write(resp.content)
+
+    return download_url
 
 
 async def ingest_seao_from_file(filepath: str, db: AsyncSession) -> int:
