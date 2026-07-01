@@ -6,12 +6,18 @@ Utilise APScheduler pour exécuter:
 - Ingestion REQ quotidienne (4h)
 - Ingestion SEAO hebdomadaire (lundi 5h)
 - Recalcul des scores (6h)
+
+Mode test: SCHEDULER_FORCE_NOW=true execute toutes les taches immediatement au
+lancement, puis le scheduler reprend son rythme normal.
 """
 import asyncio
 import logging
+import os
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from datetime import datetime, timedelta
 
 from database import async_session
 from ingestion.sources.rbq import ingest_rbq
@@ -178,6 +184,27 @@ def setup_scheduler():
 def start_scheduler():
     """Démarre le scheduler."""
     setup_scheduler()
+
+    if os.getenv("SCHEDULER_FORCE_NOW") == "true":
+        logger.info("SCHEDULER_FORCE_NOW active : execution immediate de toutes les taches")
+        now = datetime.now() + timedelta(seconds=5)
+        force_tasks = [
+            run_rbq_ingestion,
+            run_req_ingestion,
+            run_seao_ingestion,
+            run_cnesst_scraping,
+            run_rbq_decisions,
+            run_canlii,
+            run_scoring,
+        ]
+        for i, task in enumerate(force_tasks):
+            scheduler.add_job(
+                task,
+                trigger=DateTrigger(run_date=now + timedelta(minutes=i * 5)),
+                id=f"force_{task.__name__}",
+                replace_existing=True,
+            )
+
     scheduler.start()
     logger.info("Scheduler démarré")
 
