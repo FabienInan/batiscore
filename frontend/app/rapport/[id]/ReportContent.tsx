@@ -143,10 +143,9 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
     }
   }, [c.nom_legal])
 
-  const isRbqExpired = c.date_expiration_rbq
-    ? new Date(c.date_expiration_rbq + 'T00:00:00') < new Date(new Date().toDateString())
-    : false
-  const rbqBadgeVariant = c.statut_rbq === 'valide' && !isRbqExpired
+  // date_expiration_rbq = "Date du paiement annuel" (échéance de renouvellement récurrente),
+  // pas une date d'expiration : seul le statut publié par la RBQ (statut_rbq) fait foi.
+  const rbqBadgeVariant = c.statut_rbq === 'valide'
     ? 'success'
     : c.statut_rbq === 'réouverte'
       ? 'warning'
@@ -281,7 +280,7 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
                   variant={rbqBadgeVariant}
                   icon={rbqBadgeVariant === 'success' ? ShieldCheck : AlertTriangle}
                 >
-                  Licence RBQ {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : isRbqExpired ? 'EXPIRÉE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
+                  Licence RBQ {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
                 </Badge>
                 {c.statut_rbq === 'réouverte' && (
                   <Badge variant="warning" icon={AlertTriangle}>
@@ -512,7 +511,7 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
                     variant={rbqBadgeVariant}
                     icon={rbqBadgeVariant === 'success' ? ShieldCheck : AlertTriangle}
                   >
-                    {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : isRbqExpired ? 'EXPIRÉE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
+                    {c.statut_rbq === 'réouverte' ? 'RÉOUVERTE' : (c.statut_rbq?.toUpperCase() || 'INCONNUE')}
                   </Badge>
                 </div>
                 <div className="space-y-3">
@@ -522,20 +521,9 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
                   </div>
                   {c.date_expiration_rbq && (
                     <div>
-                      <div className="text-xs text-slate-400 font-medium uppercase">Validité</div>
-                      <div className={`text-sm font-medium ${
-                        new Date(c.date_expiration_rbq) < new Date() ? 'text-red-600' :
-                        new Date(c.date_expiration_rbq) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) ? 'text-amber-600' :
-                        'text-emerald-600'
-                      }`}>
-                        {new Date(c.date_expiration_rbq) < new Date() ? 'Expirée le ' : 'Valide jusqu\'au '}
-                        {c.date_expiration_rbq}
-                        {new Date(c.date_expiration_rbq) < new Date() && (
-                          <span className="ml-1 text-xs font-bold text-red-600">⚠ Licence non valide</span>
-                        )}
-                        {new Date(c.date_expiration_rbq) >= new Date() && new Date(c.date_expiration_rbq) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
-                          <span className="ml-1 text-xs font-bold text-amber-600">⚠ Expire bientôt</span>
-                        )}
+                      <div className="text-xs text-slate-400 font-medium uppercase">Paiement annuel</div>
+                      <div className="text-sm font-medium text-slate-700">
+                        Échéance de renouvellement : {c.date_expiration_rbq}
                       </div>
                     </div>
                   )}
