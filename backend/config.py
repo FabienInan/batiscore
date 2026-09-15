@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     # Solution: télécharger manuellement le ZIP et le placer dans backend/data/req.zip
     req_url: str = "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises"
     req_download_url: str = "https://www.donneesquebec.ca/recherche/dataset/registre-des-entreprises/resource/eac1b5f1-d8c0-4690-9c51-316d44ed9d94/download"
+    # Wayback fallback (le "2026" générique redirige vers le snapshot le plus récent disponible)
+    req_wayback_prefix: str = "https://web.archive.org/web/2026/"
 
     # SEAO — Appels d'offres publics
     # La découverte d'URL est faite dynamiquement via ingestion/sources/ckan_discovery.py

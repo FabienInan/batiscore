@@ -54,6 +54,8 @@ async def ingest_req(db: AsyncSession) -> int:
             downloaded = await _download_req_zip()
             if downloaded:
                 print(f"REQ: Fichier local rafraîchi depuis {REQ_DOWNLOAD_URL}")
+            elif local_exists:
+                print(f"REQ: ERREUR - Rafraîchissement échoué (toutes sources bloquées), utilisation du fichier périmé ({age_days:.0f} jours)")
         except Exception as e:
             print(f"REQ: Téléchargement automatique échoué: {e}")
             if not local_exists:
@@ -86,6 +88,11 @@ async def _download_req_zip() -> bool:
     if REQ_DOWNLOAD_URL not in urls_to_try:
         urls_to_try.append(REQ_DOWNLOAD_URL)
 
+    # 3. Wayback Machine (dernier recours, contourne le blocage anti-bot de la source)
+    if settings.req_wayback_prefix:
+        for url in list(urls_to_try):
+            urls_to_try.append(f"{settings.req_wayback_prefix}{url}")
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Accept": "application/zip,application/octet-stream,*/*",
@@ -98,6 +105,11 @@ async def _download_req_zip() -> bool:
                 resp = await client.get(url, headers=headers)
                 if resp.status_code != 200:
                     raise Exception(f"HTTP {resp.status_code}")
+
+                # Le Wayback Machine (et certaines pages d'erreur) renvoient du HTML
+                # au lieu du ZIP attendu ; vérifier la signature de fichier ZIP (PK).
+                if not resp.content.startswith(b"PK"):
+                    raise Exception(f"Contenu non-ZIP (commence par: {resp.content[:60]!r})")
 
                 LOCAL_REQ_PATH.parent.mkdir(parents=True, exist_ok=True)
                 with open(LOCAL_REQ_PATH, "wb") as f:

@@ -1,5 +1,4 @@
 import re
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Query, Depends
@@ -99,7 +98,9 @@ async def get_contractor(
 
 
 def contractor_preview(c: Contractor) -> dict:
-    rbq_valide = c.statut_rbq == 'valide' and (c.date_expiration_rbq is None or c.date_expiration_rbq >= date.today())
+    # date_expiration_rbq = "Date du paiement annuel" (echeance de renouvellement),
+    # pas une date d'expiration : seul le statut publie par la RBQ fait foi.
+    rbq_valide = c.statut_rbq in ('valide', 'réouverte')
     return {
         "id": c.id,
         "nom": c.nom_legal,
