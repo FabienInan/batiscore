@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     default: 'Batiscore — Vérifiez votre entrepreneur au Québec',
     template: '%s — Batiscore',
   },
-  description: 'Vérifiez la fiabilité de votre entrepreneur en construction au Québec avant de signer. Score de fiabilité, licence RBQ, plaintes OPC, litiges et connexions à risque. Données publiques.',
+  description: 'Vérifiez votre entrepreneur au Québec avant de signer : licence RBQ, plaintes OPC, litiges et score de fiabilité. Données publiques.',
   keywords: [
     'vérifier entrepreneur rénovation Québec',
     'entrepreneur fiable Québec',
@@ -98,7 +98,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr-CA">
       <head>
         <script data-goatcounter="https://batiscore.goatcounter.com/count" async src="//gc.zgo.at/count.js" />
       </head>

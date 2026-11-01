@@ -5,9 +5,9 @@ import { GuideHero } from '@/components/guide/GuideHero'
 import { GuideCta } from '@/components/guide/GuideCta'
 
 export const metadata: Metadata = {
-  title: 'Réclamation RBQ et recours en rénovation — Guide complet',
+  title: 'Plainte RBQ : comment déposer une réclamation en rénovation',
   description:
-    'Guide complet sur les recours en cas de problème avec un entrepreneur en rénovation : garanties légales, cautionnement RBQ, plainte à la RBQ, différence avec la plainte OPC et recours devant les tribunaux.',
+    'Plainte RBQ et réclamation : garanties légales, cautionnement RBQ, différence avec la plainte OPC et recours devant les tribunaux.',
   keywords: [
     'réclamation RBQ',
     'plainte RBQ entrepreneur',

@@ -5,9 +5,9 @@ import { GuideHero } from '@/components/guide/GuideHero'
 import { GuideCta } from '@/components/guide/GuideCta'
 
 export const metadata: Metadata = {
-  title: 'Comment vérifier une licence RBQ — Guide complet',
+  title: 'Vérifier une licence RBQ : registre et statut en ligne',
   description:
-    'Guide complet pour vérifier une licence RBQ : statuts (valide, suspendue, annulée), licence générale vs spécialisée, vérification en ligne et recours en cas de problème.',
+    'Registre RBQ : vérifiez si une licence est valide, suspendue ou annulée, et si l\'entrepreneur a des plaintes. Licence générale ou spécialisée, recours en cas de problème.',
   keywords: [
     'vérifier licence RBQ',
     'licence RBQ valide',
