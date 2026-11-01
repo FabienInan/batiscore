@@ -152,6 +152,7 @@ export const Footer = () => {
               <li><Link href="/guides/societe-phenix" className="hover:text-slate-300 transition-colors cursor-pointer">Sociétés phénix</Link></li>
               <li><Link href="/guides/plainte-opc-entrepreneur" className="hover:text-slate-300 transition-colors cursor-pointer">Plainte à l'OPC</Link></li>
               <li><Link href="/guides/reclamation-rbq" className="hover:text-slate-300 transition-colors cursor-pointer">Réclamation RBQ</Link></li>
+              <li><Link href="/guides/verifier-plaintes-entrepreneur" className="hover:text-slate-300 transition-colors cursor-pointer">Vérifier les plaintes</Link></li>
             </ul>
           </div>
         </div>

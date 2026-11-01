@@ -27,6 +27,11 @@ const GUIDES = [
     title: 'Faire une réclamation à la RBQ',
     description: 'Procédure complète pour déposer une réclamation au garantie financière de la Régie du bâtiment.',
   },
+  {
+    href: '/guides/verifier-plaintes-entrepreneur',
+    title: 'Comment savoir si un entrepreneur a eu des plaintes',
+    description: 'Sources publiques à consulter (OPC, RBQ, CanLII), signaux d\'alerte et questions à poser avant de signer.',
+  },
 ]
 
 export function GuidesSection() {

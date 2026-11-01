@@ -252,7 +252,7 @@ function VilleSeoContent({ data }: { data: VilleData }) {
             radiés, suspendus ou ont accumulé des plaintes à l&apos;Office de la protection du
             consommateur. Certaines entreprises ferment pour échapper à leurs obligations et
             rouvrent sous un nouveau nom — un phénomène connu sous le nom de{' '}
-            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">société phénix</a>.
+            <a href="/guides/societe-phenix" className="text-orange-600 underline">société phénix</a>.
           </p>
           <p>
             Notre outil croise les données de la RBQ, du REQ, de l&apos;OPC, de CanLII et du SEAO pour
@@ -269,6 +269,11 @@ function VilleSeoContent({ data }: { data: VilleData }) {
           <p>
             Les travaux de rénovation à {data.nom} représentent des investissements importants.
             Une vérification gratuite de 30 secondes peut vous éviter des milliers de dollars de pertes.
+          </p>
+          <p>
+            Pour aller plus loin :{' '}
+            <a href="/guides/verifier-licence-rbq" className="text-orange-600 underline">vérifier une licence RBQ</a>{' '}
+            et <a href="/guides/verifier-plaintes-entrepreneur" className="text-orange-600 underline">comment savoir si un entrepreneur a eu des plaintes</a>.
           </p>
         </div>
       </div>
@@ -299,7 +304,7 @@ function MrcSeoContent({ data }: { data: MrcData }) {
             radiés, suspendus ou ont accumulé des plaintes à l&apos;Office de la protection du
             consommateur. Certaines entreprises ferment pour échapper à leurs obligations et
             rouvrent sous un nouveau nom — un phénomène connu sous le nom de{' '}
-            <a href="/verifier-entrepreneur-renovation" className="text-orange-600 underline">société phénix</a>.
+            <a href="/guides/societe-phenix" className="text-orange-600 underline">société phénix</a>.
           </p>
           <p>
             Notre outil croise les données de la RBQ, du REQ, de l&apos;OPC, de CanLII et du SEAO pour
@@ -316,6 +321,11 @@ function MrcSeoContent({ data }: { data: MrcData }) {
           <p>
             Les travaux de rénovation dans la {data.nom} représentent des investissements importants.
             Une vérification gratuite de 30 secondes peut vous éviter des milliers de dollars de pertes.
+          </p>
+          <p>
+            Pour aller plus loin :{' '}
+            <a href="/guides/verifier-licence-rbq" className="text-orange-600 underline">vérifier une licence RBQ</a>{' '}
+            et <a href="/guides/verifier-plaintes-entrepreneur" className="text-orange-600 underline">comment savoir si un entrepreneur a eu des plaintes</a>.
           </p>
         </div>
       </div>

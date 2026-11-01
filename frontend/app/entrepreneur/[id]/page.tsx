@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
   return {
     title: `${contractor.nom}${ville} — Batiscore`,
-    description: `Vérifiez la fiabilité de ${contractor.nom}${ville}. Licence RBQ ${contractor.licence_rbq || 'N/A'}, ${statut}${score}. Données publiques RBQ, REQ et OPC.`,
+    description: `Vérifiez la fiabilité de ${contractor.nom}${ville}. Licence RBQ ${contractor.licence_rbq || 'non renseignée'}, ${statut}${score}. Données publiques RBQ, REQ et OPC.`,
     alternates: { canonical: `https://batiscore.ca/entrepreneur/${contractor.id}` },
     openGraph: {
       title: `${contractor.nom}${ville} — Batiscore`,

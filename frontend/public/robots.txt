@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 Disallow: /recherche?q=*
 Disallow: /contester
 Disallow: /termes-et-conditions

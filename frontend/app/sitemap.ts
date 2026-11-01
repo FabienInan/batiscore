@@ -25,6 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     'societe-phenix',
     'plainte-opc-entrepreneur',
     'reclamation-rbq',
+    'verifier-plaintes-entrepreneur',
   ]
 
   const guidePages = guideSlugs.map((slug) => ({

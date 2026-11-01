@@ -98,7 +98,7 @@ export default function EntrepreneurContent() {
             <div className="space-y-3">
               <h1 className="text-2xl md:text-3xl font-bold text-white">{contractor.nom}</h1>
               <div className="flex flex-wrap gap-2 items-center text-sm text-slate-400">
-                <span className="font-medium text-slate-300">RBQ {contractor.licence_rbq || 'N/A'}</span>
+                <span className="font-medium text-slate-300">RBQ {contractor.licence_rbq || 'non renseignée'}</span>
                 {contractor.neq && <><span className="opacity-30">|</span><span>NEQ {contractor.neq}</span></>}
                 {contractor.ville && <><span className="opacity-30">|</span><span>{contractor.ville}</span></>}
               </div>

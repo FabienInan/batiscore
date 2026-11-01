@@ -111,6 +111,8 @@ interface Report {
   }
 }
 
+const SOUMISSIONS_GO_URL = 'https://soumissions-go.com/'
+
 export default function ReportContent({ report, reseau }: { report: Report; reseau: Reseau | null }) {
   const [copied, setCopied] = useState<string | null>(null)
   const [navigatingId, setNavigatingId] = useState<number | null>(null)
@@ -336,6 +338,27 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
             </p>
           </div>
         </div>
+        {/* Encadré partenaire Soumissions Go : séparé du calcul du score */}
+        <div className="bg-white rounded-xl shadow-saas border border-slate-100 p-6 mb-6 print:hidden">
+            <h2 className="text-lg font-bold text-slate-900 mb-2">Vous êtes cet entrepreneur ?</h2>
+            <p className="text-sm text-slate-600 leading-relaxed mb-4">
+              Soumissions Go est un logiciel simple pour créer, envoyer et suivre vos soumissions.
+              Essai gratuit.
+            </p>
+            <a
+              href={SOUMISSIONS_GO_URL}
+              target="_blank"
+              rel="noopener sponsored"
+              className="inline-block text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+            >
+              Essayer Soumissions Go gratuitement →
+            </a>
+            <p className="text-[11px] text-slate-400 mt-4 leading-relaxed">
+              Batiscore et Soumissions Go sont deux services distincts. Le niveau de confiance affiché
+              sur cette page est calculé à partir de données publiques et n&apos;est influencé par aucun abonnement.
+            </p>
+        </div>
+
         {/* Score Breakdown */}
         {c.score_breakdown && c.score_breakdown.length > 0 && (
           <div className="bg-white rounded-xl shadow-saas border border-slate-100 p-6 mb-6">

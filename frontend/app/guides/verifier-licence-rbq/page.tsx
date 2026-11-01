@@ -84,6 +84,22 @@ function FaqJsonLd() {
           text: "La licence d'entrepreneur général permet de construire, rénover ou modifier des bâtiments de toute nature selon les sous-catégories détenues. La licence d'entrepreneur spécialisé est restreinte à des travaux spécifiques comme la plomberie (sous-catégorie 15.5), l'électricité (sous-catégorie 16) ou la ventilation (sous-catégorie 15.8). Un entrepreneur spécialisé ne peut effectuer que les travaux couverts par sa sous-catégorie.",
         },
       },
+      {
+        '@type': 'Question',
+        name: 'Un entrepreneur a-t-il eu des plaintes ? Comment le savoir ?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: "Les plaintes sont réparties entre plusieurs sources : l'Office de la protection du consommateur (OPC) pour les plaintes des consommateurs, la RBQ pour les sanctions, le REQ pour le statut de l'entreprise et CanLII pour les décisions publiées. Batiscore regroupe ces sources pour un même entrepreneur.",
+        },
+      },
+      {
+        '@type': 'Question',
+        name: "Que faire si la licence de l'entrepreneur est suspendue ?",
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: "Ne signez pas le contrat et ne versez aucun acompte. Vérifiez le statut dans le registre de la RBQ, puis signalez la situation à la RBQ si nécessaire. Vérifiez aussi s'il s'agit d'une société phénix.",
+        },
+      },
     ],
   }
   return (
@@ -375,6 +391,28 @@ export default function VerifierLicenceRbqPage() {
                     (sous-catégorie 16) ou la mécanique du bâtiment (sous-catégorie 1.9). Un
                     entrepreneur spécialisé ne peut effectuer que les travaux couverts par sa
                     sous-catégorie.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 not-prose">
+                  <h3 className="text-base font-bold text-slate-900 mb-2">Un entrepreneur a-t-il eu des plaintes ? Comment le savoir ?</h3>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    Les plaintes sont réparties entre plusieurs sources : l&apos;Office de la protection
+                    du consommateur (OPC) pour les plaintes des consommateurs, la RBQ pour les sanctions,
+                    le REQ pour le statut de l&apos;entreprise et CanLII pour les décisions publiées.{' '}
+                    <Link href="/guides/verifier-plaintes-entrepreneur" className="text-orange-600 hover:text-orange-700 no-underline font-semibold">
+                      Consultez notre guide sur les plaintes &rarr;
+                    </Link>
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 not-prose">
+                  <h3 className="text-base font-bold text-slate-900 mb-2">Que faire si la licence de l&apos;entrepreneur est suspendue ?</h3>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    Ne signez pas le contrat et ne versez aucun acompte. Vérifiez le statut dans le
+                    registre de la RBQ, puis signalez la situation à la RBQ si nécessaire. Vérifiez
+                    aussi s&apos;il s&apos;agit d&apos;une société phénix. Les étapes détaillées sont
+                    plus haut dans cette page.
                   </p>
                 </div>
               </div>

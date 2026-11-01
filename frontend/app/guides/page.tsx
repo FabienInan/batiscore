@@ -88,6 +88,13 @@ const GUIDES = [
       'Comment déposer une plainte à l\'Office de la protection du consommateur contre un entrepreneur en construction au Québec.',
     tags: ['OPC', 'plainte', 'consommateur'],
   },
+  {
+    slug: 'verifier-plaintes-entrepreneur',
+    title: 'Comment savoir si un entrepreneur a eu des plaintes',
+    description:
+      'Sources publiques à consulter (OPC, RBQ, CanLII), signaux d\'alerte et questions à poser avant de signer.',
+    tags: ['plaintes', 'vérification', 'OPC'],
+  },
 ]
 
 export default function GuidesPage() {
