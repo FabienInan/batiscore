@@ -252,8 +252,8 @@ export default function ReportContent({ report, reseau }: { report: Report; rese
   return (
     <main className="min-h-screen print:min-h-0 print:h-auto">
       {/* Dark hero header */}
-      <section className="bg-slate-900 py-10 lg:py-14 print:bg-white print:border-b print:border-slate-200">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-500/5 via-transparent to-transparent print:hidden" aria-hidden="true" />
+      <section className="relative overflow-hidden bg-slate-900 py-10 lg:py-14 print:bg-white print:border-b print:border-slate-200">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-500/5 via-transparent to-transparent print:hidden pointer-events-none" aria-hidden="true" />
 
         <div className="relative max-w-3xl mx-auto px-4">
           <div className="flex justify-between items-center mb-8 print:hidden">
