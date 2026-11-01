@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from ingestion.sources.ckan_discovery import find_req_zip_url
+from ingestion.freshness import ensure_writable
 from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor
 
@@ -51,6 +52,7 @@ async def ingest_req(db: AsyncSession) -> int:
 
     if not local_exists or local_stale:
         try:
+            ensure_writable(LOCAL_REQ_PATH)
             downloaded = await _download_req_zip()
             if downloaded:
                 print(f"REQ: Fichier local rafraîchi depuis {REQ_DOWNLOAD_URL}")

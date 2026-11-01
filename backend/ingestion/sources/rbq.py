@@ -23,6 +23,7 @@ from config import settings
 from models import Contractor
 from ingestion.transforms.normalize import normalize_name, normalize_neq, normalize_licence_rbq, ContractorIndex
 from ingestion.sources.ckan_discovery import find_rbq_json_url
+from ingestion.freshness import SourceRefreshError, ensure_writable
 
 # Chemin du fichier local (relatif à ce fichier)
 LOCAL_RBQ_PATH = Path(__file__).parent.parent.parent / "data" / "rbq.json"
@@ -53,6 +54,9 @@ async def ingest_rbq(db: AsyncSession):
     else:
         print(f"RBQ: Fichier local périmé (>{RBQ_MAX_AGE_DAYS} jours), tentative de rafraîchissement...")
 
+    # Échouer tout de suite si le fichier ne peut pas être écrit, sans télécharger 3 fois 84 Mo
+    ensure_writable(LOCAL_RBQ_PATH)
+
     urls_to_try = []
 
     # a) Découverte CKAN (URL à jour)
@@ -76,13 +80,16 @@ async def ingest_rbq(db: AsyncSession):
             count = await ingest_rbq_from_url(url, db)
             if count > 0:
                 return count
+        except OSError as e:
+            raise SourceRefreshError(f"RBQ : écriture de {LOCAL_RBQ_PATH} impossible : {e}") from e
         except Exception as e:
             print(f"RBQ: Échec - {e}")
             continue
 
     # Fallback sur le fichier local périmé si le téléchargement échoue
+    # (le planificateur vérifie ensuite la fraîcheur et fait échouer le job)
     if local_exists:
-        print("RBQ: Téléchargement échoué, utilisation du fichier local périmé")
+        print("RBQ: ERREUR - Téléchargement échoué, utilisation du fichier local périmé")
         return await ingest_rbq_from_file(LOCAL_RBQ_PATH, db)
 
     print("RBQ: Impossible de charger le fichier. Placez rbq.json dans backend/data/")

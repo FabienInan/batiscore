@@ -20,12 +20,13 @@ from apscheduler.triggers.date import DateTrigger
 from datetime import datetime, timedelta
 
 from database import async_session
-from ingestion.sources.rbq import ingest_rbq
-from ingestion.sources.req import ingest_req
-from ingestion.sources.seao import ingest_seao
+from ingestion.sources.rbq import ingest_rbq, LOCAL_RBQ_PATH, RBQ_MAX_AGE_DAYS
+from ingestion.sources.req import ingest_req, LOCAL_REQ_PATH, REQ_MAX_AGE_DAYS
+from ingestion.sources.seao import ingest_seao, LOCAL_SEAO_PATH, SEAO_MAX_AGE_DAYS
 from ingestion.sources.cnesst import scrape_cnesst_default_list
 from ingestion.sources.rbq_decisions import ingest_rbq_decisions
 from ingestion.sources.canlii import ingest_canlii_rbq
+from ingestion.freshness import assert_fresh
 from scoring.engine import recalculate_all_scores
 
 
@@ -35,12 +36,17 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 
+# Chaque tâche d'ingestion vérifie ensuite que son fichier source est à jour.
+# Si le téléchargement a échoué et qu'on a dû utiliser un fichier périmé,
+# la tâche est marquée en erreur au lieu de réussir silencieusement.
+
 async def run_rbq_ingestion():
     """Tâche: Ingestion RBQ quotidienne."""
     logger.info("Début ingestion RBQ...")
     try:
         async with async_session() as db:
             await ingest_rbq(db)
+        assert_fresh("RBQ", LOCAL_RBQ_PATH, RBQ_MAX_AGE_DAYS)
         logger.info("Ingestion RBQ terminée")
     except Exception as e:
         logger.error(f"Erreur ingestion RBQ: {e}")
@@ -52,6 +58,7 @@ async def run_req_ingestion():
     try:
         async with async_session() as db:
             await ingest_req(db)
+        assert_fresh("REQ", LOCAL_REQ_PATH, REQ_MAX_AGE_DAYS)
         logger.info("Ingestion REQ terminée")
     except Exception as e:
         logger.error(f"Erreur ingestion REQ: {e}")
@@ -63,6 +70,7 @@ async def run_seao_ingestion():
     try:
         async with async_session() as db:
             await ingest_seao(db)
+        assert_fresh("SEAO", LOCAL_SEAO_PATH, SEAO_MAX_AGE_DAYS)
         logger.info("Ingestion SEAO terminée")
     except Exception as e:
         logger.error(f"Erreur ingestion SEAO: {e}")

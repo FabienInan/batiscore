@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ingestion.sources.ckan_discovery import find_seao_json_url
+from ingestion.freshness import ensure_writable
 from ingestion.transforms.normalize import normalize_name, normalize_neq, ContractorIndex
 from models import Contractor, SEAOContract
 
@@ -63,6 +64,7 @@ async def _download_latest_seao_monthly() -> Optional[str]:
     Découvre le dernier fichier mensuel via CKAN et le télécharge.
     Retourne l'URL téléchargée ou None.
     """
+    ensure_writable(LOCAL_SEAO_PATH)
     print("SEAO: Recherche du dernier fichier mensuel via CKAN...")
     download_url = await find_seao_json_url(prefer_monthly=True)
     print(f"SEAO: Téléchargement depuis {download_url}")
@@ -110,10 +112,53 @@ async def ingest_seao_from_file(filepath: str, db: AsyncSession) -> int:
     return await process_seao_contracts(contracts, db)
 
 
+async def ingest_seao_monthly_files(db: AsyncSession, files: List[tuple[str, str]]) -> dict:
+    """
+    Ingère une liste de fichiers SEAO [(libellé, url)] un par un.
+    Chaque fichier est téléchargé dans le dossier temporaire du système, ingéré,
+    puis supprimé : l'espace disque utilisé reste celui d'un seul fichier.
+    Un fichier qui échoue est signalé et n'arrête pas les suivants.
+    """
+    import tempfile
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+    }
+    totals = {"files_ok": 0, "files_failed": 0, "ingested": 0}
+
+    for label, url in files:
+        print(f"SEAO backfill: {label}")
+        tmp = tempfile.NamedTemporaryFile(prefix=f"seao_{label}_", suffix=".json", delete=False)
+        tmp.close()
+        try:
+            async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
+                async with client.stream("GET", url, headers=headers) as resp:
+                    if resp.status_code != 200:
+                        raise Exception(f"HTTP {resp.status_code}")
+                    with open(tmp.name, "wb") as f:
+                        async for chunk in resp.aiter_bytes():
+                            f.write(chunk)
+
+            n = await ingest_seao_from_file(tmp.name, db)
+            totals["ingested"] += n
+            totals["files_ok"] += 1
+        except Exception as e:
+            print(f"SEAO backfill: ÉCHEC {label} : {e}")
+            totals["files_failed"] += 1
+        finally:
+            Path(tmp.name).unlink(missing_ok=True)
+
+    print(f"SEAO backfill terminé : {totals['files_ok']} fichiers ok, "
+          f"{totals['files_failed']} en échec, {totals['ingested']} contrats ajoutés")
+    return totals
+
+
 async def process_seao_contracts(contracts: list, db: AsyncSession) -> int:
     """Traite une liste de contrats SEAO avec lookups en mémoire."""
     ingested = 0
-    skipped = 0
+    already = 0
+    not_found = 0
 
     # Précharger tous les contractors en mémoire
     idx = await ContractorIndex.load(db)
@@ -130,11 +175,13 @@ async def process_seao_contracts(contracts: list, db: AsyncSession) -> int:
 
     for contract in contracts:
         try:
-            matched = await process_seao_contract(contract, db, idx, existing_seao)
-            if matched:
+            status = await process_seao_contract(contract, db, idx, existing_seao)
+            if status == "ingested":
                 ingested += 1
+            elif status == "already":
+                already += 1
             else:
-                skipped += 1
+                not_found += 1
 
             if ingested % 500 == 0 and ingested > 0:
                 await db.commit()
@@ -145,7 +192,8 @@ async def process_seao_contracts(contracts: list, db: AsyncSession) -> int:
             continue
 
     await db.commit()
-    print(f"SEAO: {ingested:,} contrats ingérés, {skipped:,} ignorés (entrepreneur non trouvé)")
+    print(f"SEAO: {ingested:,} contrats ajoutés, {already:,} déjà en base, "
+          f"{not_found:,} sans entrepreneur correspondant")
     return ingested
 
 
@@ -226,7 +274,7 @@ async def process_seao_contract(
     """
     Associe un contrat SEAO à un entrepreneur existant.
     Supporte le format OCDS (releases) et le format legacy.
-    Retourne True si un entrepreneur a été trouvé et le contrat créé.
+    Retourne "ingested", "already" (contrat déjà en base) ou "not_found" (aucun entrepreneur).
     """
     # Détecter le format : OCDS si la clé "parties" est présente
     if "parties" in contract or "tender" in contract:
@@ -256,13 +304,13 @@ async def process_seao_contract(
             contractor = idx.by_nom.get(nom_norm)
 
     if not contractor:
-        return False
+        return "not_found"
 
     # Déduplication en mémoire O(1)
     if titre:
         dedup_key = (contractor.id, titre[:500])
         if dedup_key in existing_seao:
-            return False
+            return "already"
 
     # Parser le montant
     montant = None
@@ -298,7 +346,7 @@ async def process_seao_contract(
     if titre:
         existing_seao.add((contractor.id, titre[:500]))
 
-    return True
+    return "ingested"
 
 
 async def get_contrats_publics(contractor_id: int, db: AsyncSession) -> List[SEAOContract]:

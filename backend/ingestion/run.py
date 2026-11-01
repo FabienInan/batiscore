@@ -50,6 +50,15 @@ async def run_ingestion(source: str):
             count = await ingest_seao(db)
             print(f"SEAO: {count:,} contrats traités")
 
+        elif source == "seao_backfill":
+            # Historique complet : tous les fichiers mensuels CKAN depuis 2021.
+            # Long (plusieurs dizaines de Mo par mois). À lancer une fois, manuellement.
+            from ingestion.sources.ckan_discovery import list_seao_monthly_urls
+            from ingestion.sources.seao import ingest_seao_monthly_files
+            files = await list_seao_monthly_urls()
+            print(f"SEAO backfill: {len(files)} fichiers mensuels à traiter")
+            await ingest_seao_monthly_files(db, [(m, u) for m, u in files])
+
         elif source == "cnesst":
             results = await scrape_cnesst_default_list(db)
             print(f"CNESST: {len(results)} employeurs en défaut traités")
@@ -96,7 +105,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingestion des données")
     parser.add_argument(
         "--source",
-        choices=["rbq", "req", "seao", "cnesst", "rbq_decisions", "rbq_pdf", "canlii", "scoring", "all"],
+        choices=["rbq", "req", "seao", "seao_backfill", "cnesst", "rbq_decisions", "rbq_pdf", "canlii", "scoring", "all"],
         default="rbq",
         help="Source à ingérer (défaut: rbq)",
     )

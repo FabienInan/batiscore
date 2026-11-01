@@ -173,6 +173,36 @@ async def find_seao_json_url(prefer_monthly: bool = True) -> str:
     raise Exception("Impossible de découvrir l'URL SEAO via CKAN")
 
 
+async def list_seao_monthly_urls() -> list[tuple[str, str]]:
+    """
+    Liste tous les fichiers mensuels SEAO publiés sur CKAN, depuis 2021.
+    Retourne [(mois 'YYYYMM', url)], trié par mois, sans doublon.
+    """
+    dataset_id = "d23b2e02-085d-43e5-9e6e-e1d558ebfdd5"
+    last_error = None
+    for api_base in ["https://ouvert.canada.ca/data", "https://www.donneesquebec.ca/recherche"]:
+        try:
+            result = await _fetch_package(api_base, dataset_id)
+        except Exception as e:
+            last_error = e
+            continue
+
+        by_month: dict[str, str] = {}
+        for r in result.get("resources", []):
+            name = r.get("name", "")
+            url = r.get("url", "")
+            if r.get("format", "").upper() != "JSON" or not url.endswith(".json"):
+                continue
+            m = re.match(r"monthly_(\d{6})\d{2}_\d{8}", name, re.IGNORECASE)
+            if m:
+                by_month.setdefault(m.group(1), url)
+
+        if by_month:
+            return sorted(by_month.items())
+
+    raise Exception(f"Impossible de lister les fichiers mensuels SEAO via CKAN : {last_error}")
+
+
 async def test_discovery():
     """Quick test pour valider la découverte d'URLs."""
     print("=== Test découverte URLs CKAN ===")
